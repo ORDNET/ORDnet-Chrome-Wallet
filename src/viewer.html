@@ -260,7 +260,16 @@ body {
       </div>
       <div id="appCatalog"></div>
     </div>
-    <iframe id="viewFrame" style="display:none" sandbox="allow-scripts allow-same-origin allow-downloads"></iframe>
+    <!-- K6 — allow-same-origin is GONE, and it must stay gone.
+         Combined with allow-scripts it cancels the sandbox: a srcdoc document
+         then inherits this page's origin, which is the extension origin, and
+         on-chain HTML written by anyone at all could read chrome.storage and
+         with it the unlocked session key. This page is web-accessible from
+         every site, so that was reachable from any tab.
+         Without allow-same-origin the inscription renders in an opaque origin:
+         it can still run its own scripts, but it has no extension APIs, no
+         access to this document, and no shared storage. -->
+    <iframe id="viewFrame" style="display:none" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer"></iframe>
     <div class="dev-info" id="devInfo"><span id="devType"></span><span id="devSize"></span><span id="devTxid"></span></div>
   </div>
 

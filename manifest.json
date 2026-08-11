@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ORDnet Web3 Browser",
-  "version": "4.7.2",
-  "description": "Browse .web3 domains and manage your encrypted ORD/plug wallet \u2014 send & receive BSV, SNS/OpNS names and BSVmaps on 1SatOrdinals, inscribe files, browse your on-chain files and connect BRC-100 apps.",
+  "version": "4.8.1",
+  "description": "Browse .web3 domains and manage your encrypted ORD/plug wallet — send & receive BSV, SNS/OpNS names and BSVmaps on 1SatOrdinals, inscribe files, browse your on-chain files and connect BRC-100 apps.",
   "author": "ORDnet.io / ARTaY",
   "homepage_url": "https://ordnet.io",
   "permissions": [

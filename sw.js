@@ -8,6 +8,22 @@ var NAMES_API = 'https://domains.ordnet.io'; // v40 — resolver on the v2 platf
 var CACHE_NAME = 'ordnet-cache-v4'; // fresh cache so every name re-resolves via the main domain
 var TLDS = ['web3','bitcoin','bsv','ordinal','sat','crypto','nft','x','sats','ord'];
 
+/* The content type on an inscription is chosen by whoever inscribed it, and
+   these responses are served from the extension origin. Without nosniff a
+   browser may sniff past a harmless declared type and execute the body. We
+   send nosniff always, and anything outside the render allowlist is handed
+   over as a plain download rather than as something the browser will run. */
+var SAFE_TYPES = /^(text\/(plain|html|markdown|csv)|image\/(png|jpeg|gif|webp|svg\+xml|avif)|video\/(mp4|webm)|audio\/(mpeg|wav|ogg|webm)|application\/(json|pdf))\b/i;
+function safeHeaders(ct){
+  var clean = SAFE_TYPES.test(String(ct||'')) ? String(ct) : 'application/octet-stream';
+  return {
+    'Content-Type': clean,
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "sandbox allow-scripts; default-src 'self' data: blob:",
+    'Cache-Control': 'public,max-age=31536000'
+  };
+}
+
 self.addEventListener('install', function(){ self.skipWaiting(); });
 self.addEventListener('activate', function(e){ e.waitUntil(clients.claim()); });
 
@@ -37,7 +53,7 @@ async function handleDomain(domain, subpath){
     var hex = await tx.text();
     var ord = extractOrd(hex, 0);
     if (!ord) throw new Error('no inscription');
-    var resp = new Response(ord.data, { headers: { 'Content-Type': ord.ct, 'Cache-Control': 'public,max-age=31536000' } });
+    var resp = new Response(ord.data, { headers: safeHeaders(ord.ct) });
     await cache.put(key, resp.clone());
     return resp;
   }catch(e){ return new Response('Error: ' + e.message, { status: 404 }); }
@@ -54,7 +70,7 @@ async function handleTxid(txid, vout){
     var hex = await tx.text();
     var ord = extractOrd(hex, vout);
     if (!ord) throw new Error('no inscription');
-    var resp = new Response(ord.data, { headers: { 'Content-Type': ord.ct, 'Cache-Control': 'public,max-age=31536000' } });
+    var resp = new Response(ord.data, { headers: safeHeaders(ord.ct) });
     await cache.put(key, resp.clone());
     return resp;
   }catch(e){ return new Response('Error: ' + e.message, { status: 404 }); }

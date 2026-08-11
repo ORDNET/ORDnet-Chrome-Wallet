@@ -62,9 +62,9 @@ The extension is self-contained — no build step, no `npm install`.
 for t in tests/*.mjs; do node "$t"; done
 ```
 
-Nine suites, 123 tests, on bare Node ≥ 18: signAction phases A/B, SNS
+Ten suites, 177 tests, on bare Node ≥ 18: signAction phases A/B, SNS
 verification, security gates, SPV & budget, certificates & x402, HTML
-sanity, and the V47 request gate — including the manifest-consistency test
+sanity, the V47 request gate, and the V48 audit-regression suite — including the manifest-consistency test
 that guards content-script matches against web-accessible-resource matches.
 
 ## Versioning

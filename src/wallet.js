@@ -310,12 +310,27 @@ async function fetchUnspent(address){
   }
   return [];
 }
+/* Outpoints the wallet KNOWS carry an inscription, from the holdings it has
+   already loaded. The `value > 1` heuristic alone is not enough: an ordinal
+   that arrives from a marketplace or another wallet usually carries padding
+   (2 sats and up), passes that filter, and gets burned as funding. We have the
+   outpoints — so we use them. */
+function protectedOutpoints(){
+  const set=new Set();
+  for(const it of (_holdings||[])){
+    if(it && it.currentTxid) set.add(String(it.currentTxid)+':'+((it.currentVout|0)||0));
+    if(it && it.txid)        set.add(String(it.txid)+':'+((it.vout|0)||0));
+  }
+  return set;
+}
 async function getUTXOs(address){
   const list = await fetchUnspent(address);
+  const prot = protectedOutpoints();
   const script = bsv.Script.buildPublicKeyHashOut(bsv.Address.fromString(address)).toHex();
   let shaped = list
     .filter(u => u.tx_hash && u.tx_hash.length === 64)
-    .filter(u => u.value > 1) // ordinal protection: 1-sat UTXOs may be SNS names / BSVmaps — never spend as funding
+    .filter(u => u.value > 1) // first line of defence: bare 1-sat UTXOs are never funding
+    .filter(u => !prot.has(u.tx_hash + ':' + u.tx_pos)) // second: known inscriptions, whatever their padding
     .slice(0, 200) // enough funding headroom for bulk claims (300 BSVmaps ≈ 1.5 BSV)
     .map(u => ({ txid:u.tx_hash, vout:u.tx_pos, satoshis:u.value, script, scriptPubKey:script }));
   // v4.2 — chain mechanism: minus the spent-guard, plus our own chain tips
@@ -331,7 +346,8 @@ async function getUTXOs(address){
   }
   const listed = new Set(shaped.map(u => u.txid+':'+u.vout));
   const tips = (_chainTips[address]||[]).filter(t =>
-    !listed.has(t.txid+':'+t.vout) && !guarded.has(t.txid+':'+t.vout) && t.satoshis>1);
+    !listed.has(t.txid+':'+t.vout) && !guarded.has(t.txid+':'+t.vout) &&
+    !prot.has(t.txid+':'+t.vout) && t.satoshis>1);
   return shaped.concat(tips.map(t => ({ txid:t.txid, vout:t.vout, satoshis:t.satoshis, script, scriptPubKey:script })));
 }
 async function broadcast(tx){
@@ -582,7 +598,7 @@ async function buildTx(params){
 
   // Fee & funding selection — iterate: more inputs make the tx bigger, which
   // raises the fee, which may in turn need one more input.
-  let feeSat=(params.fee|0), total=0, sel=[];
+  let feeSat=feeNum(params.fee), total=0, sel=[];
   for(let nIn=1;;){
     const fee=feeSat||Math.ceil((10 + nIn*148 + outBytes + svcBytes + 34) * FEE_RATE);
     const required=spend+svc+fee;
@@ -602,6 +618,28 @@ async function buildTx(params){
 async function getBalance(){
   const r=await fetch(`${API_BASE}/address/${_address}/balance`); const j=await r.json();
   return { confirmed:j.confirmed||0, unconfirmed:j.unconfirmed||0 };
+}
+/* K7 — domain separation for signatures.
+   `signAction()` below authenticates against domains.ordnet.io by signing
+   'ordnet-registry|<action>|<fields…>|<ts>'. That exact string used to be
+   producible through the dApp-facing ordplug.signMessage(), under an approval
+   screen that read "No coins move" — so a page could have a domain transfer
+   signed by telling the user it was signing a harmless string.
+
+   The registry's wire format cannot change without breaking the server, so the
+   separation is enforced on the way in instead: a message whose first
+   pipe-delimited field is a reserved namespace is refused when it comes from a
+   page. Internal callers pass {internal:true} and are unaffected. */
+const RESERVED_SIGN_NAMESPACES = ['ordnet-registry','ordpay/v1','ordnet-wallet','odnca'];
+function reservedNamespaceOf(message){
+  const first=String(message||'').split('|')[0].trim().toLowerCase();
+  return RESERVED_SIGN_NAMESPACES.find(ns => first===ns || first.startsWith(ns+' ')) || null;
+}
+function signMessageExternal(message){
+  const ns=reservedNamespaceOf(message);
+  if(ns) throw new Error('Refused: this message is an authorization command for "'+ns+'". A website cannot have the wallet sign it. If you meant to manage a name, use the Domains tab.');
+  if(String(message||'').length>10000) throw new Error('Refused: message too long to review.');
+  return signMessage(message);
 }
 function signMessage(message){
   const pk=bsv.PrivateKey.fromWIF(_wif);
@@ -1562,12 +1600,43 @@ async function buildListingPartial(ordinalTxid, ordinalVout, priceSat){
   return { partialTx: tx.toString(), payScriptHex: payScript.toHex() };
 }
 
+/* Audit pattern 3 — cosmetic security is worse than none.
+   The approval screen shows `sellerAddress`, and the check below used to
+   compare the listing's payment output against `payScriptHex`. Both of those
+   arrive in the SAME params object from the SAME untrusted page, so the
+   comparison was `x === x`: the user read "Seller: 1Alice…" while the output
+   paid whoever the site put in payScriptHex. The shown field never touched
+   the check.
+   buildListingPartial() always pays to a plain P2PKH of the seller's own
+   address (see above), so the expected script can be DERIVED from the
+   address the user was shown, which is the only thing they consented to. */
+function checkListingOutput({ outScriptHex, outSats, priceSat, sellerScriptHex, advertisedScriptHex }){
+  if (!outScriptHex) return 'The listing has no payment output — refusing.';
+  if (outSats !== priceSat) return 'Listing payment output does not match the advertised price — refusing.';
+  if (String(outScriptHex).toLowerCase() !== String(sellerScriptHex).toLowerCase())
+    return 'The listing pays someone other than the seller shown on this screen — refusing.';
+  if (advertisedScriptHex && String(advertisedScriptHex).toLowerCase() !== String(sellerScriptHex).toLowerCase())
+    return 'The listing script does not belong to the seller shown on this screen — refusing.';
+  return null;
+}
 async function buildPurchaseFromPartial(partialHex, priceSat, sellerAddress, payScriptHex, extraOutputs){
   const pk = bsv.PrivateKey.fromWIF(_wif), buyer = pk.toAddress();
   const tx = new bsv.Transaction(partialHex);
   const out0 = tx.outputs[0];
-  if (!out0 || out0.satoshis !== priceSat || out0.script.toHex() !== payScriptHex)
-    throw new Error('Listing payment output does not match the advertised price — refusing.');
+  let sellerScriptHex;
+  try {
+    sellerScriptHex = bsv.Script.buildPublicKeyHashOut(bsv.Address.fromString(String(sellerAddress))).toHex();
+  } catch (e) {
+    throw new Error('The seller address on this listing is not a valid address — refusing.');
+  }
+  const problem = checkListingOutput({
+    outScriptHex: out0 ? out0.script.toHex() : null,
+    outSats: out0 ? out0.satoshis : null,
+    priceSat,
+    sellerScriptHex,
+    advertisedScriptHex: payScriptHex
+  });
+  if (problem) throw new Error(problem);
   tx.addOutput(new bsv.Transaction.Output({ script: bsv.Script.buildPublicKeyHashOut(buyer), satoshis: 1 }));
   // v3.5 — extraOutputs: bv. de ORDnet-marketplace-fee (0,5%, koper betaalt bovenop).
   // Gecapt op 5% van de prijs zodat een kwaadaardige site geen absurde fee kan meesmokkelen;
@@ -2093,6 +2162,31 @@ async function bulkGoNow(){
 /* sats as a safe integer — NEVER use `|0` on sat amounts: it is a 32-bit cast
    and silently corrupts anything above 21.47 BSV (2,147,483,647 sats). */
 function satNum(v){ const n=Math.round(Number(v)||0); return n>0?n:0; }
+/* A caller-supplied miner fee. NEVER use `|0` here: that is a 32-bit cast and
+   silently turns 3_000_000_000 into -1_294_967_296, which then sails through
+   every downstream check. Returns a safe non-negative integer, 0 when absent. */
+function feeNum(v){
+  if(v===undefined||v===null||v==='') return 0;
+  // Only a real number or a plain numeric string. An object that coerces
+  // through valueOf() is not a fee, it is someone being clever.
+  if(typeof v!=='number' && typeof v!=='string') return 0;
+  if(typeof v==='string' && !/^\d+(\.\d+)?$/.test(v.trim())) return 0;
+  const n=Math.round(Number(v));
+  if(!Number.isFinite(n)||n<0||n>Number.MAX_SAFE_INTEGER) return 0;
+  return n;
+}
+/* K5 — a raw `script` output used to show only its amount. Decode the common
+   P2PKH shape so the destination is visible; anything else is labelled as an
+   opaque script, which is itself the warning. */
+function scriptDest(hex){
+  const h=String(hex||'').toLowerCase();
+  const m=h.match(/^76a914([0-9a-f]{40})88ac$/);
+  if(m){
+    try{ return bsv.Address.fromPublicKeyHash(bsv.deps.Buffer.from(m[1],'hex')).toString(); }
+    catch(e){ return 'P2PKH ' + m[1]; }
+  }
+  return 'custom script (' + Math.ceil(h.length/2) + ' bytes)';
+}
 function purchaseSats(pr){ return pr.amountSat ? satNum(pr.amountSat) : Math.round((Number(pr.amount)||0)*1e8); }
 function purchaseMessage(pr){
   return 'ORDPAY/v1 | shop:'+(pr.shop||'')+' | item:'+(pr.itemTitle||'')+' | order:'+(pr.orderId||'')+' | amount:'+purchaseSats(pr)+' sats | to:'+(pr.to||'');
@@ -2109,7 +2203,7 @@ function presentApproval(){
     $('apApprove').textContent='Connect';
   } else if(p.method==='pay'){
     ic.innerHTML=ICONS.sendBig; $('apTitle').textContent='Approve payment';
-    const sats=satNum(p.params.amount), fee=(p.params.fee|0)||sendMinerFee();
+    const sats=satNum(p.params.amount), fee=feeNum(p.params.fee)||sendMinerFee();
     d.innerHTML=`<div class="kv"><span class="k">From</span><span class="v">${esc(_accounts[_active].name)}</span></div>
       <div class="kv"><span class="k">To</span><span class="v">${esc(p.params.to)}</span></div>
       <div class="kv"><span class="k">Amount</span><span class="v">${sats.toLocaleString()} sats</span></div>
@@ -2129,7 +2223,16 @@ function presentApproval(){
     $('apApprove').textContent='Approve & inscribe';
   } else if(p.method==='signMessage'){
     ic.innerHTML=ICONS.check; $('apTitle').textContent='Sign message';
-    d.innerHTML=`<p>Sign this message with your key. No coins move.</p><div class="kv"><span class="k">Message</span><span class="v">${esc(String(p.params.message)).slice(0,200)}</span></div>`;
+    /* K7 — the old copy promised "No coins move", which is true of the
+       transaction and misleading about the consequence: a signature is an
+       authorization that a service can act on. The message is also shown in
+       full now — it used to be cut at 200 characters WITHOUT saying so, and
+       cut after escaping, which could slice an HTML entity in half. */
+    const _m=String(p.params.message||'');
+    const _shown=_m.length>2000?_m.slice(0,2000):_m;
+    d.innerHTML=`<p>Sign this message with your key. <strong>No coins move — but a signature can authorise actions on any service that accepts it.</strong> Read it in full before you sign.</p>
+      <div class="kv" style="align-items:flex-start"><span class="k">Message</span><span class="v" style="white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;text-align:left">${esc(_shown)}</span></div>
+      ${_m.length>_shown.length?`<p style="color:var(--text-secondary);font-size:12px">Showing the first 2.000 of ${_m.length.toLocaleString()} characters.</p>`:''}`;
     $('apApprove').textContent='Sign';
   } else if(p.method==='purchase'){
     ic.innerHTML=ICONS.cart; $('apTitle').textContent='Approve purchase';
@@ -2168,17 +2271,43 @@ function presentApproval(){
     $('apTitle').textContent=(p.params.meta&&p.params.meta.title)||'Approve transaction';
     const outs=Array.isArray(p.params.outputs)?p.params.outputs:[];
     const rows=outs.map((o,i)=>{
-      if(o.type==='inscription') return `<div class="kv"><span class="k">#${i} Inscription</span><span class="v">${esc(String(o.data||'').slice(0,40))} → ${(satNum(o.satoshis)||1)} sat</span></div>`;
+      if(o.type==='inscription') return `<div class="kv"><span class="k">#${i} Inscription</span><span class="v">${esc(String(o.data||'').slice(0,40))} → ${(satNum(o.satoshis)||1)} sat to ${esc(String(o.address||'').slice(0,16))}…</span></div>`;
       if(o.type==='p2pkh')       return `<div class="kv"><span class="k">#${i} Payment</span><span class="v">${satNum(o.satoshis).toLocaleString()} sats → ${esc(String(o.address).slice(0,16))}…</span></div>`;
-      if(o.type==='opreturn')    return `<div class="kv"><span class="k">#${i} OP_RETURN</span><span class="v">${esc((o.data||[]).join(' ')).slice(0,60)}</span></div>`;
-      if(o.type==='script')      return `<div class="kv"><span class="k">#${i} Script</span><span class="v">${satNum(o.satoshis).toLocaleString()} sats</span></div>`;
+      if(o.type==='opreturn')    return `<div class="kv"><span class="k">#${i} OP_RETURN</span><span class="v">${esc((o.data||[]).join(' ').slice(0,60))}</span></div>`;
+      if(o.type==='script')      return `<div class="kv"><span class="k">#${i} Script</span><span class="v">${satNum(o.satoshis).toLocaleString()} sats → ${esc(scriptDest(o.scriptHex))}</span></div>`;
       return '';
     }).join('');
     const svc=(p.params.includeServiceFees!==false)?TOTAL_SERVICE_FEES:0;
+    /* K5 — the two things this screen used to hide.
+       changeAddress: everything left over after the listed outputs goes there.
+       When a site names an address that is not yours, that is the whole
+       remainder of the selected UTXOs leaving your wallet, and it belongs at
+       the top of the screen in red, not nowhere.
+       fee: an explicit fee is money to the miner. Unshown, it was a way to
+       drain a balance behind a screen that read "1.000 sats". */
+    const chg=p.params.changeAddress?String(p.params.changeAddress):'';
+    const chgForeign=chg && chg!==_address;
+    const chgRow = chg
+      ? `<div class="kv" style="${chgForeign?'background:rgba(220,38,38,.10);border-radius:6px;padding:4px 6px':''}">
+           <span class="k">${chgForeign?'⚠ Change goes to':'Change back to'}</span>
+           <span class="v">${esc(chg.slice(0,20))}…</span></div>`
+      : `<div class="kv"><span class="k">Change back to</span><span class="v">${_address.slice(0,20)}… (your wallet)</span></div>`;
+    const explicitFee=feeNum(p.params.fee);
+    const feeRow = explicitFee
+      ? `<div class="kv" style="background:rgba(234,179,8,.12);border-radius:6px;padding:4px 6px">
+           <span class="k">⚠ Miner fee set by site</span>
+           <span class="v">${explicitFee.toLocaleString()} sats</span></div>`
+      : '<div class="kv"><span class="k">Miner fee</span><span class="v">calculated by your wallet</span></div>';
+    const warn = chgForeign
+      ? `<p style="margin-top:8px;color:#dc2626;font-size:12px"><strong>This site is sending your change to an address that is not yours.</strong> Everything above the listed amounts leaves your wallet. Only approve if you know exactly why.</p>`
+      : '';
     d.innerHTML=`${(p.params.meta&&p.params.meta.shop)?`<div class="kv"><span class="k">Shop</span><span class="v">${esc(p.params.meta.shop)}</span></div>`:''}
       ${rows}
       <div class="kv"><span class="k">Service fee</span><span class="v">${svc.toLocaleString()} sats</span></div>
-      <p style="margin-top:8px;color:var(--text-secondary);font-size:12px">Review every output above — you sign and broadcast in one step.</p>`;
+      ${feeRow}
+      ${chgRow}
+      ${warn}
+      <p style="margin-top:8px;color:var(--text-secondary);font-size:12px">Review every line above — you sign and broadcast in one step.</p>`;
     $('apApprove').textContent='Approve & send';
   }
   $('apApprove').disabled=false; $('apReject').disabled=false;
@@ -2199,9 +2328,9 @@ async function approveRequest(){
       else if(p.method==='getBalance') result=await getBalance();
       else result={ address:_address };
     }
-    else if(p.method==='pay'){ const tx=await buildSend(p.params.to, satNum(p.params.amount), p.params.data||null, (p.params.fee|0)); result={ txid:await broadcastAndRegister(tx) }; }
-    else if(p.method==='inscribe'){ const bytes=new TextEncoder().encode(String(p.params.data)); const tx=await buildInscribe(p.params.contentType||'text/plain', bytes, (p.params.fee|0)); result={ txid:await broadcastAndRegister(tx), address:_address }; }
-    else if(p.method==='signMessage'){ result=Object.assign(signMessage(String(p.params.message)), { address:_address }); }
+    else if(p.method==='pay'){ const tx=await buildSend(p.params.to, satNum(p.params.amount), p.params.data||null, feeNum(p.params.fee)); result={ txid:await broadcastAndRegister(tx) }; }
+    else if(p.method==='inscribe'){ const bytes=new TextEncoder().encode(String(p.params.data)); const tx=await buildInscribe(p.params.contentType||'text/plain', bytes, feeNum(p.params.fee)); result={ txid:await broadcastAndRegister(tx), address:_address }; }
+    else if(p.method==='signMessage'){ result=Object.assign(signMessageExternal(String(p.params.message)), { address:_address }); }
     else if(p.method==='purchase'){
       const sats=purchaseSats(p.params);
       if(sats<1) throw new Error('Invalid amount.');
