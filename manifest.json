@@ -1,0 +1,80 @@
+{
+  "manifest_version": 3,
+  "name": "ORDnet Web3 Browser",
+  "version": "4.7.2",
+  "description": "Browse .web3 domains and manage your encrypted ORD/plug wallet \u2014 send & receive BSV, SNS/OpNS names and BSVmaps on 1SatOrdinals, inscribe files, browse your on-chain files and connect BRC-100 apps.",
+  "author": "ORDnet.io / ARTaY",
+  "homepage_url": "https://ordnet.io",
+  "permissions": [
+    "storage"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+  },
+  "host_permissions": [
+    "https://names.ordnet.io/*",
+    "https://*.ordnet.io/*",
+    "https://api.whatsonchain.com/*",
+    "https://bsvmap.io/*",
+    "https://ordinals.gorillapool.io/*",
+    "https://api.bitails.io/*"
+  ],
+  "action": {
+    "default_popup": "src/wallet.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/brc100-content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/viewer.html",
+        "src/viewer.js",
+        "src/inpage.js"
+      ],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ]
+    },
+    {
+      "resources": [
+        "src/brc100-inpage.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
