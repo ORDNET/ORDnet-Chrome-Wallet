@@ -121,15 +121,46 @@ var ORDPLUG_GATE = {
 };
 if (typeof globalThis !== 'undefined') globalThis.OrdplugGate = ORDPLUG_GATE;
 
+/* The requesting origin, as the browser sees it. Never trust a page-supplied
+   value: sender.origin is populated by Chrome from the real frame. Falls back
+   to the tab URL for older runtimes, and to '' when neither is available —
+   callers must treat '' as "unknown" and refuse. */
+function senderOrigin(sender){
+  try {
+    if (sender && sender.origin) return sender.origin;
+    if (sender && sender.url) return new URL(sender.url).origin;
+    if (sender && sender.tab && sender.tab.url) return new URL(sender.tab.url).origin;
+  } catch (e) {}
+  return '';
+}
+
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse){
   if (msg && msg.type === 'brc100_request') {
+    // Refuse outright when the browser cannot tell us who is asking: an empty
+    // origin would collapse every site into one grant bucket.
+    if (!senderOrigin(sender)) {
+      sendResponse({ ok: false, error: 'Could not determine the requesting origin' });
+      return false;
+    }
     if (handleBrc100Direct(msg.method, msg.args, sendResponse)) return true;
     // fase 2/3: the unlocked key lives in the popup — store & open it
     var pending = {
       id: msg.id,
       method: msg.method,
       args: msg.args || '{}',
-      origin: msg.originator || (sender.tab && sender.tab.url ? new URL(sender.tab.url).origin : ''),
+      // H4 — the origin comes from the BROWSER, never from the page.
+      //
+      // This used to prefer msg.originator, which the page supplies. A site
+      // could pass originator:"https://trusted.dapp" and (a) have the approval
+      // screen show that name while evil.com was asking, (b) inherit grants
+      // keyed on `${_address}|${origin}|…`, and (c) inherit that dApp's budget —
+      // and brc100-budget.decide() auto-approves within an existing budget, so
+      // that was payments up to the daily ceiling with no confirmation at all.
+      //
+      // sender.origin is set by Chrome from the actual frame and cannot be
+      // spoofed by page script. Android and iOS fixed this in August; the
+      // extension is now aligned with them.
+      origin: senderOrigin(sender),
       tabId: sender.tab ? sender.tab.id : null
     };
     chrome.storage.session.set({ ordplug_pending_brc100: pending }, function(){

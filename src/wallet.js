@@ -3656,6 +3656,65 @@ async function brc100RequirePermission(origin, method, args){
   _brc100Grants.push(grantKey);
   await saveBrc100Grants();
 }
+/* H7 — per-origin consent for the BRC-100 read surface.
+   listActions and listOutputs used to be callable by any site with no check at
+   all: the full transaction history and every UTXO, to anyone who asked. Both
+   Android and iOS gated these in August; the extension did not. The grant is
+   per origin and persists like the other BRC-100 grants, so a dApp asks once. */
+async function brc100RequireReadConsent(origin, method){
+  const grantKey=`${_address}|${origin}|read|${method}`;
+  if(_brc100Grants.includes(grantKey)) return;
+  // listCertificates is NOT here: it routes through brc100RequirePermission
+  // instead. Listing it would have been dead code pretending to be coverage.
+  const titles={
+    listActions:'See your transaction history',
+    listOutputs:'See your coins'
+  };
+  const details={
+    listActions:'The app asks to read the transactions of this wallet: amounts, labels and counterparties. No coins move.',
+    listOutputs:'The app asks to read every unspent output this wallet holds, including its ordinals. No coins move.'
+  };
+  const approved=await new Promise(res=>{
+    showView('brc100perm');
+    $('bpIcon').innerHTML=ICONS.key;
+    $('bpTitle').textContent=titles[method]||method;
+    $('bpOrigin').textContent=origin||'unknown app';
+    $('bpDetail').textContent=details[method]||'The app asks to read wallet data.';
+    $('bpAllow').onclick=()=>res(true);
+    $('bpDeny').onclick=()=>res(false);
+  });
+  if(!approved) throw brc100Err('WERR_PERMISSION_DENIED', 1, 'The user denied read access for '+origin+'.');
+  _brc100Grants.push(grantKey);
+  await saveBrc100Grants();
+}
+
+/* Destructive BRC-100 calls confirm on EVERY invocation and never persist a
+   grant — a loop must not be able to strip the wallet behind one approval.
+   Covers relinquishOutput and relinquishCertificate: both discard something
+   permanently, and a fix applied to only one of them is how the second one
+   stays open. Anything destructive added later routes through here too. */
+const BRC100_DESTRUCTIVE={
+  relinquishOutput:{ title:'Give up an output',
+    what:'stop tracking', subject:'an output' },
+  relinquishCertificate:{ title:'Delete a certificate',
+    what:'permanently delete', subject:'a certificate' }
+};
+async function brc100RequireDestructive(origin, method, subject){
+  const spec=BRC100_DESTRUCTIVE[method]||{ title:'Destructive action', what:'carry out', subject:'this action' };
+  const approved=await new Promise(res=>{
+    showView('brc100perm');
+    $('bpIcon').innerHTML=ICONS.key;
+    $('bpTitle').textContent=spec.title;
+    $('bpOrigin').textContent=origin||'unknown app';
+    $('bpDetail').textContent='The app asks this wallet to '+spec.what+' '+
+      String(subject||spec.subject).slice(0,72)+
+      '.\n\nThis cannot be undone from here, and it is asked again every time.';
+    $('bpAllow').onclick=()=>res(true);
+    $('bpDeny').onclick=()=>res(false);
+  });
+  if(!approved) throw brc100Err('WERR_PERMISSION_DENIED', 1, 'The user denied '+method+' for '+origin+'.');
+}
+
 /* per-transaction confirm (fase 3): money ≠ grant, nothing persists */
 async function brc100RequireTxConfirm(opts){
   // V45 — per-app daily budget: wallet-built OUTGOING payments within the
@@ -4236,23 +4295,40 @@ async function handleBrc100Pending(p){
       result=await brc100Engine(p.method, args);
     } else if(p.method==='createAction'){ result=await brc100CreateAction(argsJson, p.origin); }
     else if(p.method==='internalizeAction'){ result=await brc100InternalizeAction(argsJson, p.origin); }
-    else if(p.method==='listActions'){ result=brc100ListActions(args); }
+    else if(p.method==='listActions'){
+      await brc100RequireReadConsent(p.origin, 'listActions');
+      result=brc100ListActions(args);
+    }
     else if(p.method==='listOutputs'){
+      await brc100RequireReadConsent(p.origin, 'listOutputs');
       const u=await getUTXOs(_address);
       const v=brc100RequireValid(brc100ListOutputsCalc(u, argsJson));
       result={ totalOutputs:v.totalOutputs, outputs:v.outputs };
     }
-    else if(p.method==='relinquishOutput'){ result=await brc100DoRelinquish(args); }
+    else if(p.method==='relinquishOutput'){
+      await brc100RequireDestructive(p.origin, 'relinquishOutput', args && (args.output || args.outpoint));
+      result=await brc100DoRelinquish(args);
+    }
     else if(p.method==='signAction'){ result=await brc100SignActionReview(argsJson, p.origin); }
     else if(p.method==='acquireCertificate'){ result=await brc100AcquireCertificate(argsJson, p.origin); }
     else if(p.method==='listCertificates'){
       const CE=globalThis.OrdplugCerts; if(!CE) throw brc100Err('WERR_INTERNAL',1,'certificate engine not loaded.');
-      await brc100RequirePermission('listCertificates', args, p.origin);
+      // The arguments were in the wrong order: the signature is
+      // (origin, method, args), and this passed ('listCertificates', args, origin).
+      // The grant key became `${_address}|listCertificates|…`, so EVERY site
+      // shared one bucket — approve it on one dApp and every other dApp
+      // inherited it. Same class as H4, in a single line.
+      await brc100RequirePermission(p.origin, 'listCertificates', args);
       result=CE.listCertificates(await loadCerts(), args);
     }
     else if(p.method==='proveCertificate'){ result=await brc100ProveCertificate(argsJson, p.origin); }
     else if(p.method==='relinquishCertificate'){
       const CE=globalThis.OrdplugCerts; if(!CE) throw brc100Err('WERR_INTERNAL',1,'certificate engine not loaded.');
+      // Was completely ungated: any site could delete any certificate, in a
+      // loop, permanently, with saveCerts() persisting each one. Same class as
+      // relinquishOutput — fixed there in 4.9.0 and missed here.
+      await brc100RequireDestructive(p.origin, 'relinquishCertificate',
+        args && (args.type || args.serialNumber || args.certifier));
       const list=await loadCerts();
       try{ result=CE.relinquishCertificate(list, args); }
       catch(e){ throw brc100Err(e.name||'WERR_INVALID_PARAMETER',(typeof e.code==='number')?e.code:3, e.message||String(e)); }

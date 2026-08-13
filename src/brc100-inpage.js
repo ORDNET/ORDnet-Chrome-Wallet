@@ -28,6 +28,9 @@
           id: id,
           method: method,
           args: JSON.stringify(args === undefined ? {} : args),
+          // Kept for API compatibility with callers that pass it, but the
+          // extension ignores it: the origin is taken from sender.origin in
+          // background.js. Sending it is informational only.
           originator: String(originator || window.location.origin || '')
         }, '*');
       } catch (e) {

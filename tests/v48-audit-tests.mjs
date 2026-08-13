@@ -19,6 +19,7 @@ const dir = new URL('..', import.meta.url).pathname;
 const walletSrc = fs.readFileSync(dir + 'src/wallet.js', 'utf8');
 const viewerHtml = fs.readFileSync(dir + 'src/viewer.html', 'utf8');
 const swSrc = fs.readFileSync(dir + 'sw.js', 'utf8');
+const backgroundSrc = fs.readFileSync(dir + 'src/background.js', 'utf8');
 
 let pass = 0, fail = 0;
 function t(name, fn) {
@@ -290,6 +291,106 @@ t('the expected script is DERIVED from sellerAddress, not taken from params', ()
 });
 t('an unusable seller address is refused rather than skipped', () => {
   assert.ok(/not a valid address — refusing/.test(lift('buildPurchaseFromPartial')));
+});
+
+/* ============================================================== *
+ * H4 / H7 — ported from the mobile wallets (2026-08-13 review)
+ * ============================================================== */
+console.log('\nH4: the origin comes from the browser, not the page');
+
+t('background.js no longer prefers a page-supplied originator', () => {
+  assert.ok(!/origin:\s*msg\.originator/.test(backgroundSrc),
+    'msg.originator is still used as the origin');
+});
+t('the origin is taken from sender via a helper', () => {
+  assert.ok(/origin:\s*senderOrigin\(sender\)/.test(backgroundSrc));
+});
+t('senderOrigin prefers sender.origin, which page script cannot set', () => {
+  const i = backgroundSrc.indexOf('function senderOrigin');
+  assert.ok(i !== -1, 'senderOrigin helper missing');
+  const fn = backgroundSrc.slice(i, i + 400);
+  assert.ok(/sender\.origin/.test(fn));
+  assert.ok(fn.indexOf('sender.origin') < fn.indexOf('sender.tab'), 'sender.origin must win');
+});
+t('an unknown origin is refused rather than collapsed into one bucket', () => {
+  assert.ok(/if \(!senderOrigin\(sender\)\)/.test(backgroundSrc));
+});
+
+console.log('\nH7: the BRC-100 read surface is gated');
+
+t('listActions requires consent before it answers', () => {
+  assert.ok(/'listActions'\)\{[\s\S]{0,120}brc100RequireReadConsent\(p\.origin, 'listActions'\)/.test(walletSrc));
+});
+t('listOutputs requires consent before it reads the UTXO set', () => {
+  const i = walletSrc.indexOf("p.method==='listOutputs'");
+  const seg = walletSrc.slice(i, i + 300);
+  assert.ok(seg.indexOf('brc100RequireReadConsent') !== -1);
+  assert.ok(seg.indexOf('brc100RequireReadConsent') < seg.indexOf('getUTXOs'),
+    'consent must come before the wallet is read');
+});
+t('relinquishOutput confirms on every call', () => {
+  assert.ok(/brc100RequireDestructive\(p\.origin, 'relinquishOutput'/.test(walletSrc));
+});
+t('relinquishCertificate confirms on every call too', () => {
+  // Fixed for outputs in 4.9.0 and missed for certificates: any site could
+  // delete any certificate, in a loop, with saveCerts persisting each one.
+  assert.ok(/brc100RequireDestructive\(p\.origin, 'relinquishCertificate'/.test(walletSrc));
+});
+t('the confirmation happens BEFORE the certificate list is touched', () => {
+  const i = walletSrc.indexOf("p.method==='relinquishCertificate'");
+  // Strip comments first: the block documents the old bug and mentions
+  // saveCerts() in prose, which an index search would read as code.
+  const seg = walletSrc.slice(i, i + 1200).replace(/\/\/[^\n]*/g, '');
+  const gate = seg.indexOf('brc100RequireDestructive');
+  assert.ok(gate !== -1, 'no destructive gate on this branch');
+  assert.ok(gate < seg.indexOf('loadCerts()'), 'consent must precede reading the list');
+  assert.ok(gate < seg.indexOf('saveCerts('), 'consent must precede persisting the deletion');
+});
+t('destructive consent is deliberately NOT persisted as a grant', () => {
+  const fn = lift('brc100RequireDestructive');
+  assert.ok(!/_brc100Grants\.push/.test(fn),
+    'a persisted grant would let a loop strip the wallet behind one approval');
+});
+t('every method in the destructive table is actually gated', () => {
+  const i = walletSrc.indexOf('const BRC100_DESTRUCTIVE');
+  const table = walletSrc.slice(i, walletSrc.indexOf('};', i));
+  const methods = [...table.matchAll(/^\s*(\w+)\s*:\s*\{/gm)].map((m) => m[1]);
+  assert.ok(methods.length >= 2, 'expected relinquishOutput and relinquishCertificate');
+  for (const m of methods) {
+    assert.ok(walletSrc.includes(`brc100RequireDestructive(p.origin, '${m}'`),
+      `${m} is listed as destructive but never gated`);
+  }
+});
+t('read grants are keyed per origin AND per method', () => {
+  const fn = lift('brc100RequireReadConsent');
+  assert.ok(/\$\{_address\}\|\$\{origin\}\|read\|\$\{method\}/.test(fn));
+});
+t('a denied read throws WERR_PERMISSION_DENIED rather than returning empty', () => {
+  assert.ok(/WERR_PERMISSION_DENIED[\s\S]{0,80}denied read access/.test(lift('brc100RequireReadConsent')));
+});
+
+console.log('\nevery permission call passes origin first');
+
+t('brc100RequirePermission is always called as (origin, method, args)', () => {
+  // One call site had ('listCertificates', args, origin), so the grant key
+  // became `${_address}|listCertificates|…` and every site shared one bucket:
+  // approve on one dApp, inherited by all. Same class as H4, one line.
+  const calls = [...walletSrc.matchAll(/brc100RequirePermission\(([^)]*)\)/g)]
+    .map((m) => m[1].trim())
+    .filter((a) => !a.startsWith('origin, method'));   // skip the definition
+  assert.ok(calls.length >= 2, 'expected at least two call sites');
+  for (const args of calls) {
+    assert.ok(/^p\.origin\b/.test(args),
+      `first argument must be the origin, got: ${args}`);
+  }
+});
+
+t('no consent helper offers a title for a method it never handles', () => {
+  // Comments may mention it; the titles/details tables may not, because an
+  // entry there is dead code pretending to be coverage.
+  const fn = lift('brc100RequireReadConsent').replace(/\/\/[^\n]*/g, '');
+  assert.ok(!/listCertificates\s*:/.test(fn),
+    'listCertificates routes through brc100RequirePermission, not through read consent');
 });
 
 console.log('\n' + '='.repeat(46));
