@@ -11,9 +11,11 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 | Internal build | Manifest version | Public Chrome Web Store version |
 |---|---|---|
-| V47.2 | 4.7.2 | **3.5.0** — next release (in review) |
+| V49.2 | 4.9.2 | **3.6.0** — next release |
+| V48 … V49.1 | 4.8.0 … 4.9.1 | security-fix builds, folded into 3.6.0 |
+| V47.2 | 4.7.2 | **3.5.1** — currently live |
 | V35 … V47.1 | 3.5.0 … 4.7.1 | internal development builds, not shipped individually |
-| V34 | 3.4.0 | **3.4.0** — currently live |
+| V34 | 3.4.0 | 3.4.0 |
 | V4 … V33 | 1.0.0 … 3.3.0 | internal development builds, pre-store |
 
 > Note: public store numbering diverges from internal numbering from V35
@@ -22,7 +24,92 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 ---
 
-## [4.7.2 (V47.2)] — 2026-08-11 → ships as store version 3.5.0
+## [4.9.2 (V49.2)] — 2026-08-13 → ships as store version 3.6.0
+
+Third round of the external review. Full detail in
+[SECURITY-FIXES-4.9.2.md](SECURITY-FIXES-4.9.2.md).
+
+### Security
+- **`relinquishCertificate` was completely ungated.** Any site could
+  permanently delete any certificate, in a loop, with `saveCerts()` persisting
+  each one. `relinquishOutput` was gated in 4.9.0 and the branch next to it was
+  missed. Both now go through one `brc100RequireDestructive()` driven by a
+  `BRC100_DESTRUCTIVE` table, and a test iterates that table and fails if any
+  method in it is not gated — so the next destructive method cannot quietly
+  stay open.
+- **`listCertificates` passed its arguments in the wrong order.**
+  `brc100RequirePermission('listCertificates', args, origin)` against a
+  signature of `(origin, method, args)`, so the grant key became
+  `${_address}|listCertificates|…` and every site shared one bucket: approve it
+  on one dApp and every other dApp inherited it. Same class as H4, in one line.
+
+### Tests
+- 189 → 192.
+
+---
+
+## [4.9.0 (V49)] — 2026-08-13
+
+Second round of the external review: two findings that were fixed on Android
+and iOS in August and never ported here. Full detail in
+[SECURITY-FIXES-4.9.0.md](SECURITY-FIXES-4.9.0.md).
+
+### Security
+- **H4 — the page chose its own origin.** `msg.originator` comes from the page,
+  so a site could pass `originator: "https://trusted.dapp"` and get three
+  things at once: the approval screen showed that name while the real site was
+  asking; grants keyed on `${_address}|${origin}|…` were inherited wholesale;
+  and `brc100-budget.decide()` is keyed on origin too and auto-approves inside
+  an existing budget — payments up to the daily ceiling with no confirmation.
+  The origin now comes from `sender.origin`, which page script cannot set.
+- **H7 — the BRC-100 read surface was ungated.** `listActions`, `listOutputs`
+  and `relinquishOutput` had no permission check at all. Reads now require
+  per-origin consent; `relinquishOutput` confirms on every call and stores no
+  grant, so a loop cannot strip the wallet behind one approval.
+
+### Tests
+- 177 → 189.
+
+---
+
+## [4.8.1 (V48.1)] — 2026-08-11
+
+### Security
+- **A field shown but never checked.** The purchase screen displayed
+  `sellerAddress` while the listing's payment output was compared against
+  `payScriptHex` — both from the same untrusted page, so the comparison was one
+  attacker-supplied value against another. The expected script is now derived
+  from the address the user was actually shown.
+
+---
+
+## [4.8.0 (V48)] — 2026-08-11
+
+First round of the external audit: three critical findings. Full detail in
+[SECURITY-FIXES-4.8.1.md](SECURITY-FIXES-4.8.1.md).
+
+### Security
+- **K5 — the approval screen showed X and signed Y.** `changeAddress` and the
+  miner fee were not on the screen, so a site could name its own change address
+  and take the entire remainder of the selected UTXOs behind a screen reading
+  "1.000 sats". Both are now always shown, a foreign change address is flagged
+  in red, and script and inscription outputs disclose their destinations.
+- **K6 — on-chain content ran in the extension origin.** The viewer iframe
+  carried `allow-scripts` together with `allow-same-origin`, which cancels the
+  sandbox; `viewer.html` is web-accessible from every site, so any page could
+  open it against an inscription of its choosing and read the session key.
+- **K7 — `signMessage` was registry authentication without domain separation.**
+  A site could have a domain transfer signed under a screen that read "No coins
+  move." Page-originated signing now refuses reserved namespaces.
+- Ordinals with padding are no longer spendable as funding, and satoshi amounts
+  are no longer 32-bit truncated by `|0`.
+
+### Tests
+- 123 → 177.
+
+---
+
+## [4.7.2 (V47.2)] — 2026-08-11 → shipped as store version 3.5.1
 
 ### Fixed
 - Provider resources are now reachable on all sites: V47/V47.1 widened where
