@@ -1,5 +1,11 @@
 # ORD/plug — ORDnet Web3 Browser & Wallet
 
+[![tests](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml/badge.svg)](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml)
+[![test count](https://img.shields.io/badge/tests-192_across_10_suites-2b8a3e?style=flat-square)](#tests)
+[![platform](https://img.shields.io/badge/platform-Chrome_Manifest_V3-364fc7?style=flat-square)](#what-this-extension-may-touch)
+[![store](https://img.shields.io/badge/Chrome_Web_Store-ORDnet_Web3_Browser-5f3dc4?style=flat-square)](#versioning)
+[![license](https://img.shields.io/badge/license-source--available-6a737d?style=flat-square)](LICENSE)
+
 Chrome extension for the on-chain web: browse `.web3` domains, hold and send
 BSV, manage SNS/OpNS names and BSVmaps on 1Sat Ordinals, inscribe files,
 read your on-chain mail and files, and connect BRC-100 apps — with your keys
@@ -48,6 +54,24 @@ The non-negotiables, enforced in code and covered by tests:
 Deeper reading: [SECURITY-REVIEW-V44.md](SECURITY-REVIEW-V44.md) (the
 signAction security review) and [SIGNACTION-SCOPE.md](SIGNACTION-SCOPE.md).
 
+## What this extension may touch
+
+Chrome shows permission warnings at install; here is what each one is and
+why it exists — verifiable against [`manifest.json`](manifest.json):
+
+| Permission | Why |
+|---|---|
+| `storage` | The encrypted wallet, settings and per-origin grants live in extension storage. The only Chrome API permission requested. |
+| `names.ordnet.io`, `*.ordnet.io` | Name resolution, on-chain content and the ORDnet services the wallet talks to. |
+| `api.whatsonchain.com`, `ordinals.gorillapool.io`, `api.bitails.io` | Public chain data: balances, UTXOs, inscriptions, broadcast. |
+| `bsvmap.io` | BSVmap tile data. |
+| Content script on `http(s)://*` | Injects the `window.ordplug` / BRC-100 provider so any site *can ask* to connect. Before you approve an origin, a page learns only that the provider exists — no address, no state (security model, point 2). |
+
+Notable absences: no `tabs`, no `history`, no `webRequest`, no
+`clipboardRead`, no `<all_urls>` API permission — the broad-sounding
+content-script match exists solely to offer the provider, and the request
+gate decides everything after that.
+
 ## Install from source
 
 1. Clone or download this repository.
@@ -60,6 +84,7 @@ The extension is self-contained — no build step, no `npm install`.
 
 ```bash
 for t in tests/*.mjs; do node "$t"; done
+# -> ten summaries, 192 passed in total, 0 failed
 ```
 
 Ten suites, 192 tests, on bare Node ≥ 18: signAction phases A/B, SNS
