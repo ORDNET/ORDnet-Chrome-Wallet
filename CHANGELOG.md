@@ -11,7 +11,8 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 | Internal build | Manifest version | Public Chrome Web Store version |
 |---|---|---|
-| V49.6 | 4.9.6 | **4.9.6** — this release: home simplification (layout only) |
+| V49.7 | 4.9.7 | **4.9.7** — this release: home simplification (layout only) + repository housekeeping |
+| V49.6 | 4.9.6 | first GitHub upload of the home simplification; the web upload left three stale files from older versions in the tree (see 4.9.7), not submitted to the store |
 | V49.4 … V49.5 | 4.9.4 … 4.9.5 | internal iterations (⋯ menu + More tab; @-tile for OpNS), reviewed on screenshots, not published |
 | V49.3 | 4.9.3 | **4.9.3** — security and recovery round (submitted after 4.9.2 is approved) |
 | V49.2 | 4.9.2 | **4.9.2** — submitted 2026-09-01; store and internal numbering are one and the same from here on |
@@ -26,6 +27,24 @@ number in parentheses. Dates are build dates taken from the archive files.
 > submitted under its own number on 2026-09-01 to close that gap; from now on
 > the manifest version, the git tag, the store version, `getVersion()` and
 > `window.ordplug.version` are one identity (see RELEASE-4.9.3.md).
+
+---
+
+## [4.9.7 (V49.7)] — 2026-09-02
+
+Same wallet as 4.9.6 plus repository housekeeping. GitHub's web upload adds
+and overwrites but never deletes, so the 4.9.6 upload left three files from
+older versions in the tree — two of which the release suite rightly rejects:
+
+- removed `src/wallet.js` (the pre-split 4.7.2 monolith; the popup engine
+  lives in `src/wallet/00-…24-*.js` since 4.9.3)
+- removed `src/brc100-content.js` (one injector, `src/content.js`, since 4.9.3)
+- removed `RELEASE-4.9.5.md` (4.9.5 was an internal iteration, never published)
+- restored `.github/workflows/test.yml` (unit suites on every push) and added
+  `.github/workflows/e2e.yml` (loaded-extension suite, manual trigger only
+  until proven green — it needs a headed Chromium that CI must provide)
+
+No wallet code changed between 4.9.6 and 4.9.7 apart from the version number.
 
 ---
 
@@ -70,7 +89,7 @@ or storage keys changed; every button keeps its id and its handler.
 - Watch-only accounts: agreed for a later release, mockup first.
 
 ### Tests
-- 243 → 251: a V49.6 block in `tests/v49-release-tests.mjs` checks the
+- 243 → 251: a V49.7 block in `tests/v49-release-tests.mjs` checks the
   layout is present, the engine ids survive, rows open the detail screen,
   the five header icons and the five tabs are back, the category tiles
   reuse the list tile classes, and the new CSS uses only `var(--…)` tokens

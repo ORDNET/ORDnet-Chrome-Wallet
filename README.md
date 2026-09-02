@@ -12,7 +12,7 @@ read your on-chain mail and files, and connect BRC-100 apps — with your keys
 encrypted locally and never leaving your machine.
 
 Live in the Chrome Web Store as **ORDnet Web3 Browser**. This repository is
-version **4.9.6**; the store version, the git tag, the manifest,
+version **4.9.7**; the store version, the git tag, the manifest,
 `getVersion()` and `window.ordplug.version` carry the same number (see
 [Versioning](#versioning)). It contains the complete, unminified source of the
 shipping extension, published source-available: a wallet you can read and audit before you trust — while the code itself remains ORDnet's.
@@ -22,7 +22,7 @@ shipping extension, published source-available: a wallet you can read and audit 
 - **Web3 browsing** — resolve and open `name.web3` (and the other recognised
   TLDs) straight from the extension; content is on-chain 1Sat Ordinals
   inscriptions.
-- **Home = your balance** (4.9.6) — amount, address, Send / Receive, and four
+- **Home = your balance** (4.9.7) — amount, address, Send / Receive, and four
   category rows (SNS domains, OpNS domains, BSVmaps, For sale) that open one
   list at a time; tap a name for its detail screen with every action.
 - **Wallet** — create with a 12-word BIP39 phrase (BIP44,
@@ -100,7 +100,7 @@ The extension is self-contained — no build step, no `npm install`.
 ## Source layout
 
 ```
-manifest.json            MV3 manifest — version 4.9.6
+manifest.json            MV3 manifest — version 4.9.7
 src/background.js        service worker: routing, request gate, auth state, one wallet window
 src/brc100-methods.js    THE list of BRC-100 methods (direct / popup / refused) — shared
 src/content.js           the one content script: injects both providers, relays both families
@@ -148,11 +148,11 @@ cd tests/e2e && npm install && npx playwright install chromium && npm test
 ## Versioning
 
 From 4.9.2 (submitted 1 September 2026) the Chrome Web Store version equals
-the manifest version, the git tag, `getVersion()` (`ordplug-4.9.6`) and
+the manifest version, the git tag, `getVersion()` (`ordplug-4.9.7`) and
 `window.ordplug.version`. Before that the store was on 3.4.0 (build V34)
 while development continued to 4.9.2 — the corrected mapping table and the
 full history are in [CHANGELOG.md](CHANGELOG.md); the release zip hash is in
-[RELEASE-4.9.6.md](RELEASE-4.9.6.md).
+[RELEASE-4.9.7.md](RELEASE-4.9.7.md).
 
 ## Related
 

@@ -375,7 +375,7 @@ t('the popup has no single wallet.js any more; the module list in wallet.html is
 });
 
 /* ============================================================== */
-console.log('\nV49.6: home simplification is layout-only');
+console.log('\nV49.7: home simplification is layout-only');
 {
   const html = read('src/wallet.html'), hold = read('src/wallet/12-holdings.js'), ev = read('src/wallet/23-events.js'), views = read('src/wallet/09-views.js');
   t('home has the four category rows with the SAME count ids the engine writes', () => {
