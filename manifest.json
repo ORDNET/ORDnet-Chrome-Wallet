@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ORDnet Web3 Browser",
-  "version": "4.9.2",
-  "description": "Browse .web3 domains, send & receive BSV, SNS/OpNS names and BSVmaps on 1SatOrdinals, inscribe files and browse your on-chain files.",
+  "version": "4.9.3",
+  "description": "Browse .web3 domains and manage your encrypted ORD/plug wallet \u2014 send & receive BSV, SNS/OpNS names and BSVmaps on 1SatOrdinals, inscribe files, browse your on-chain files and connect BRC-100 apps.",
   "author": "ORDnet.io / ARTaY",
   "homepage_url": "https://ordnet.io",
   "permissions": [
@@ -40,15 +40,6 @@
         "src/content.js"
       ],
       "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "src/brc100-content.js"
-      ],
-      "run_at": "document_start"
     }
   ],
   "icons": {
@@ -61,19 +52,12 @@
       "resources": [
         "src/viewer.html",
         "src/viewer.js",
-        "src/inpage.js"
+        "src/inpage.js",
+        "src/brc100-inpage.js"
       ],
       "matches": [
         "http://*/*",
         "https://*/*"
-      ]
-    },
-    {
-      "resources": [
-        "src/brc100-inpage.js"
-      ],
-      "matches": [
-        "<all_urls>"
       ]
     }
   ]

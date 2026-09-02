@@ -17,7 +17,8 @@ globalThis.window = globalThis; globalThis.self = globalThis;
 (0, eval)(readFileSync(join(here, '../src/ord-parse.js'), 'utf8'));
 
 // --- extract the pure functions from wallet.js (brace matching) ---
-const walletSrc = readFileSync(join(here, '../src/wallet.js'), 'utf8');
+import { walletSource } from './lib/wallet-src.mjs';
+const walletSrc = walletSource();
 function extractFn(name){
   const idx = walletSrc.search(new RegExp('(?:async )?function ' + name + '\\('));
   if (idx < 0) throw new Error('function not found: ' + name);

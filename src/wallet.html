@@ -71,6 +71,14 @@
   .alert-success.show{display:flex}
   .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-color);font-size:13px}
   .kv:last-child{border-bottom:none}
+  /* V49.3 — approval plan: the total first and big, then the rows */
+  .plan-total{padding:6px 0 12px;border-bottom:1px solid var(--border-color);margin-bottom:4px;text-align:center}
+  .plan-total-n{font-size:28px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+  .plan-total-n span{font-size:14px;font-weight:600;color:var(--text-secondary)}
+  .plan-total-l{font-size:12px;color:var(--text-secondary);margin-top:2px}
+  .plan-note{font-size:11.5px;color:var(--text-secondary);padding:4px 0 6px;border-bottom:1px solid var(--border-color)}
+  .plan-sub{font-size:11px;color:var(--text-secondary)}
+  .plan-loading{font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:8px}
   .kv .k{color:var(--text-secondary)}
   .kv .v{font-family:'SF Mono',Monaco,monospace;font-size:12px;word-break:break-all;text-align:right;max-width:62%}
   .acct{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--border-color);border-radius:13px;
@@ -303,7 +311,7 @@
 
   <div id="setup-create" class="hidden">
     <h3>Your recovery phrase</h3>
-    <div class="alert alert-warning">Write these 12 words down and keep them offline — they're the only backup of this wallet.</div>
+    <div class="alert alert-warning">Write these 12 words down and keep them offline — they're the only backup of this wallet. <strong>They are shown in this session only:</strong> after the browser restarts the wallet can no longer display them, only the private key (WIF).</div>
     <textarea id="newMnemonic" class="form-input" readonly rows="3"></textarea>
     <div class="kv"><span class="k">Derivation</span><span class="v" id="newPath">m/44'/236'/0'/0/0</span></div>
     <div class="kv"><span class="k">Address</span><span class="v" id="newAddress">—</span></div>
@@ -322,7 +330,21 @@
     <div id="createErr" class="alert alert-danger"></div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn btn-secondary" id="btnCreateBack">Back</button>
-      <button class="btn btn-primary" id="createBtn">Use this wallet</button>
+      <button class="btn btn-primary" id="createBtn">I wrote it down</button>
+    </div>
+  </div>
+
+  <!-- V49.3 — recovery challenge: prove the phrase was written down before it is encrypted away -->
+  <div id="setup-verify" class="hidden">
+    <h3>Check your backup</h3>
+    <p>Type the requested words from the phrase you just wrote down. This is the only moment the wallet can check your backup for you.</p>
+    <div class="form-group"><label class="form-label" id="vfLabel1">Word #</label><input id="vfWord1" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="form-group"><label class="form-label" id="vfLabel2">Word #</label><input id="vfWord2" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="form-group"><label class="form-label" id="vfLabel3">Word #</label><input id="vfWord3" class="form-input" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div id="verifyErr" class="alert alert-danger"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-secondary" id="btnVerifyBack">Show phrase again</button>
+      <button class="btn btn-primary" id="verifyBtn">Use this wallet</button>
     </div>
   </div>
 
@@ -349,6 +371,11 @@
     </div>
 
     <div class="hint" id="impHint">Standard BSV derivation (m/44'/236'/0'/0/0) — compatible with most BSV wallets.</div>
+    <!-- V49.3 — live, mandatory address preview: the import button only enables once the phrase validates (incl. BIP39 checksum) and the address it opens is on screen -->
+    <div id="importLive" class="card" style="padding:10px 12px;margin-top:10px">
+      <div class="kv"><span class="k">Phrase</span><span class="v" id="importLiveStatus">—</span></div>
+      <div class="kv"><span class="k">Opens address</span><span class="v" id="importLiveAddress">—</span></div>
+    </div>
     <div class="form-group" style="margin-top:12px">
       <label class="form-label">Account name (optional)</label>
       <input id="importName" class="form-input" placeholder="e.g. Main wallet">
@@ -364,7 +391,7 @@
     <div id="importErr" class="alert alert-danger"></div>
     <div class="btn-row" style="margin-top:10px">
       <button class="btn btn-secondary" id="btnImportBack">Back</button>
-      <button class="btn btn-primary" id="importBtn">Import wallet</button>
+      <button class="btn btn-primary" id="importBtn" disabled>Import wallet</button>
     </div>
   </div>
 </div>
@@ -1036,11 +1063,36 @@
 <script src="sns-verify.js"></script>
 <script src="ord-parse.js"></script>
 <script src="spv-verify.js"></script>
+<script src="brc100-methods.js"></script>
 <script src="brc100-certs.js"></script>
 <script src="x402-client.js"></script>
 <script src="brc100-budget.js"></script>
 <script src="brc100-signaction.js"></script>
 <script src="brc100-signaction-phaseB.js"></script>
-<script src="wallet.js"></script>
+<script src="wallet/00-header.js"></script>
+<script src="wallet/01-bip39-wordlist.js"></script>
+<script src="wallet/02-config.js"></script>
+<script src="wallet/03-keys.js"></script>
+<script src="wallet/04-vault.js"></script>
+<script src="wallet/05-icons.js"></script>
+<script src="wallet/06-network-chain.js"></script>
+<script src="wallet/07-brc100-state.js"></script>
+<script src="wallet/08-txbuild.js"></script>
+<script src="wallet/09-views.js"></script>
+<script src="wallet/10-setup-unlock.js"></script>
+<script src="wallet/11-accounts.js"></script>
+<script src="wallet/12-holdings.js"></script>
+<script src="wallet/13-names.js"></script>
+<script src="wallet/14-marketplace.js"></script>
+<script src="wallet/15-approval.js"></script>
+<script src="wallet/16-send-receive.js"></script>
+<script src="wallet/17-domains.js"></script>
+<script src="wallet/18-security.js"></script>
+<script src="wallet/19-utxo-tools.js"></script>
+<script src="wallet/20-upload.js"></script>
+<script src="wallet/21-ordner.js"></script>
+<script src="wallet/22-brc100-popup.js"></script>
+<script src="wallet/23-events.js"></script>
+<script src="wallet/24-boot.js"></script>
 </body>
 </html>

@@ -33,7 +33,7 @@
 
   window.ordplug = {
     isOrdPlug: true,
-    version: '1.0.0',
+    version: '4.9.3',            // V49.3 — kept equal to manifest.json (tests/v49-release-tests.mjs checks)
     connect:      function(){ return request('connect'); },
     getAddress:   function(){ return request('getAddress'); },
     getPublicKey: function(){ return request('getPublicKey'); },

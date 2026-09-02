@@ -3,7 +3,8 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
 
-const src = fs.readFileSync(new URL('../src/wallet.js', import.meta.url), 'utf8');
+import { walletSource } from './lib/wallet-src.mjs';
+const src = walletSource();
 
 // Extract the two helpers by name from the source so the test tracks the shipped code.
 function extract(name){

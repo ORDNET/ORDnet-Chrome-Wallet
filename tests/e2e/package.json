@@ -1,0 +1,11 @@
+{
+  "name": "ordplug-e2e",
+  "private": true,
+  "description": "Loaded-extension browser tests for ORD/plug (Playwright + Chromium). Not part of the bare-Node unit suites.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0"
+  }
+}

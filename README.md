@@ -1,7 +1,7 @@
 # ORD/plug — ORDnet Web3 Browser & Wallet
 
 [![tests](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml/badge.svg)](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml)
-[![test count](https://img.shields.io/badge/tests-192_across_10_suites-2b8a3e?style=flat-square)](#tests)
+[![test count](https://img.shields.io/badge/tests-243_across_11_suites_%2B_e2e-2b8a3e?style=flat-square)](#tests)
 [![platform](https://img.shields.io/badge/platform-Chrome_Manifest_V3-364fc7?style=flat-square)](#what-this-extension-may-touch)
 [![store](https://img.shields.io/badge/Chrome_Web_Store-ORDnet_Web3_Browser-5f3dc4?style=flat-square)](#versioning)
 [![license](https://img.shields.io/badge/license-source--available-6a737d?style=flat-square)](LICENSE)
@@ -11,8 +11,10 @@ BSV, manage SNS/OpNS names and BSVmaps on 1Sat Ordinals, inscribe files,
 read your on-chain mail and files, and connect BRC-100 apps — with your keys
 encrypted locally and never leaving your machine.
 
-Live in the Chrome Web Store as **ORDnet Web3 Browser** (public version
-3.x). This repository contains the complete, unminified source of the
+Live in the Chrome Web Store as **ORDnet Web3 Browser**. This repository is
+version **4.9.3**; the store version, the git tag, the manifest,
+`getVersion()` and `window.ordplug.version` carry the same number (see
+[Versioning](#versioning)). It contains the complete, unminified source of the
 shipping extension, published source-available: a wallet you can read and audit before you trust — while the code itself remains ORDnet's.
 
 ## Features
@@ -50,6 +52,18 @@ The non-negotiables, enforced in code and covered by tests:
 4. **Honest coin selection.** 1-sat inscription outputs are excluded from
    spendable funds — mail and files cannot be accidentally destroyed by a
    payment.
+5. **The screen is the bytes.** (4.9.3) For every page-requested payment,
+   inscription or `sendTx` the wallet builds the unsigned transaction first,
+   renders the approval from that exact object, and after consent signs the
+   same object and re-checks its fingerprint. A page can suggest a miner
+   fee; it is clamped to at most 2× the wallet's own estimate and the screen
+   says so.
+6. **One gate for both providers.** (4.9.3) `window.ordplug` and the BRC-100
+   `window.CWI` share the request gate, one wallet window, the cooldown, and
+   an explicit answer when that window is closed unanswered.
+7. **Remove means remove.** (4.9.3) "Remove wallet" wipes every storage
+   key, the session, and the on-chain content cache — a test fails if a new
+   storage key is ever added without being covered.
 
 Deeper reading: [SECURITY-REVIEW-V44.md](SECURITY-REVIEW-V44.md) (the
 signAction security review) and [SIGNACTION-SCOPE.md](SIGNACTION-SCOPE.md).
@@ -65,7 +79,7 @@ why it exists — verifiable against [`manifest.json`](manifest.json):
 | `names.ordnet.io`, `*.ordnet.io` | Name resolution, on-chain content and the ORDnet services the wallet talks to. |
 | `api.whatsonchain.com`, `ordinals.gorillapool.io`, `api.bitails.io` | Public chain data: balances, UTXOs, inscriptions, broadcast. |
 | `bsvmap.io` | BSVmap tile data. |
-| Content script on `http(s)://*` | Injects the `window.ordplug` / BRC-100 provider so any site *can ask* to connect. Before you approve an origin, a page learns only that the provider exists — no address, no state (security model, point 2). |
+| Content script on `http(s)://*` | One script (`src/content.js`) injects the `window.ordplug` / BRC-100 provider so any site *can ask* to connect. Before you approve an origin, a page learns only that the provider exists — no address, no state (security model, point 2). Chrome labels this "read data on all sites"; the wallet reads nothing, it only offers the provider. |
 
 Notable absences: no `tabs`, no `history`, no `webRequest`, no
 `clipboardRead`, no `<all_urls>` API permission — the broad-sounding
@@ -80,23 +94,62 @@ gate decides everything after that.
 
 The extension is self-contained — no build step, no `npm install`.
 
+## Source layout
+
+```
+manifest.json            MV3 manifest — version 4.9.3
+src/background.js        service worker: routing, request gate, auth state, one wallet window
+src/brc100-methods.js    THE list of BRC-100 methods (direct / popup / refused) — shared
+src/content.js           the one content script: injects both providers, relays both families
+src/inpage.js            window.ordplug (page world)
+src/brc100-inpage.js     window.CWI, BRC-100 (page world)
+src/wallet.html          the popup
+src/wallet/00-…24-*.js   the popup engine, 25 ordered modules (was one 4,619-line wallet.js
+                         until 4.9.2): config, keys, vault, network/chain, tx build,
+                         setup/unlock, accounts, holdings, names, marketplace, approval,
+                         send/receive, domains, security, utxo tools, upload, ORD/ner,
+                         BRC-100 popup side, events, boot
+src/viewer.html/.js      sandboxed on-chain content viewer
+src/*.js                 engines: sns-verify, ord-parse, spv-verify, brc100-certs,
+                         x402-client, brc100-budget, brc100-signaction(+phaseB)
+tests/*.mjs              bare-Node suites;  tests/e2e/  Playwright loaded-extension tests
+```
+
 ## Tests
 
 ```bash
 for t in tests/*.mjs; do node "$t"; done
-# -> ten summaries, 192 passed in total, 0 failed
+# -> eleven summaries, 243 passed in total, 0 failed
 ```
 
-Ten suites, 192 tests, on bare Node ≥ 18: signAction phases A/B, SNS
+Eleven suites, 243 tests, on bare Node ≥ 18: signAction phases A/B, SNS
 verification, security gates, SPV & budget, certificates & x402, HTML
-sanity, the V47 request gate, and the V48 audit-regression suite — including the manifest-consistency test
-that guards content-script matches against web-accessible-resource matches.
+sanity, the V47 request gate, the V48 audit-regression suite, and the V49.3
+release suite (fee clamp and plan/fingerprint against the real `bsv`
+library, BRC-100 gate, method registry, full wipe coverage, BIP39 checksum,
+auth state, release identity). The manifest-consistency test guards the
+single content script against the web-accessible-resource matches.
+
+**Loaded-extension tests** (`tests/e2e/`, Playwright): the real route page →
+content script → background → popup, in Chromium with the extension
+installed — providers on an http page, `getVersion` / `isAuthenticated`,
+refusal errors, create-with-recovery-challenge, live import preview, and the
+gate refusing a second request while one is pending. They need a headed
+Chromium, so they are not part of the bare-Node loop:
+
+```bash
+cd tests/e2e && npm install && npx playwright install chromium && npm test
+# CI: .github/workflows/e2e.yml (xvfb)
+```
 
 ## Versioning
 
-Public Chrome Web Store versions (3.x) and internal build numbers diverge;
-the mapping table and the full history of all 47 internal builds are in
-[CHANGELOG.md](CHANGELOG.md).
+From 4.9.2 (submitted 1 September 2026) the Chrome Web Store version equals
+the manifest version, the git tag, `getVersion()` (`ordplug-4.9.3`) and
+`window.ordplug.version`. Before that the store was on 3.4.0 (build V34)
+while development continued to 4.9.2 — the corrected mapping table and the
+full history are in [CHANGELOG.md](CHANGELOG.md); the release zip hash is in
+[RELEASE-4.9.3.md](RELEASE-4.9.3.md).
 
 ## Related
 

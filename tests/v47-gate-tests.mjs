@@ -8,11 +8,12 @@ import assert from 'node:assert';
 const dir = new URL('..', import.meta.url).pathname;
 const noop = () => {};
 const chromeStub = {
-  runtime: { onMessage: { addListener: noop }, onInstalled: { addListener: noop }, getURL: () => '' },
+  runtime: { onMessage: { addListener: noop }, onInstalled: { addListener: noop }, getURL: () => '', getManifest: () => ({ version: '4.9.3' }) },
   storage: { session: { get: noop, set: noop, remove: noop }, local: { get: noop, set: noop } },
   windows: { create: noop }, tabs: { sendMessage: noop }, action: { onClicked: { addListener: noop } }
 };
 const ctx = { console, chrome: chromeStub, setTimeout, clearTimeout };
+ctx.importScripts = (f) => vm.runInContext(fs.readFileSync(dir + 'src/' + f, 'utf8'), ctx);
 ctx.globalThis = ctx; ctx.self = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(dir + 'src/background.js', 'utf8'), ctx);

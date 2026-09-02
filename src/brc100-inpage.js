@@ -18,10 +18,22 @@
   var pending = {};
   var nextId = 1;
 
+  /* V49.3 — no promise may hang forever: if the extension never answers
+     (wallet window closed, worker restarted, bridge gone) the call rejects
+     after REQUEST_TIMEOUT_MS with a standards-shaped error, exactly like the
+     ordplug provider has done since V11. */
+  var REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
   function callWallet(method, args, originator) {
     return new Promise(function (resolve, reject) {
       var id = 'cwi' + (nextId++) + '_' + Date.now();
-      pending[id] = { resolve: resolve, reject: reject };
+      var timer = setTimeout(function () {
+        if (!pending[id]) return;
+        delete pending[id];
+        var err = new Error(method + ': the wallet did not answer within 5 minutes.');
+        err.name = 'WERR_TIMEOUT'; err.code = 7; err.isError = true;
+        reject(err);
+      }, REQUEST_TIMEOUT_MS);
+      pending[id] = { resolve: resolve, reject: reject, timer: timer };
       try {
         window.postMessage({
           __ordplugCWI: 1, dir: 'page2cs',
@@ -34,7 +46,7 @@
           originator: String(originator || window.location.origin || '')
         }, '*');
       } catch (e) {
-        delete pending[id];
+        delete pending[id]; clearTimeout(timer);
         var err = new Error('The wallet bridge is unavailable.');
         err.name = 'WERR_UNKNOWN'; err.code = 1; err.isError = true;
         reject(err);
@@ -51,6 +63,7 @@
     var p = pending[d.id];
     if (!p) return;
     delete pending[d.id];
+    clearTimeout(p.timer);
     if (d.ok) {
       p.resolve(d.result);
     } else {

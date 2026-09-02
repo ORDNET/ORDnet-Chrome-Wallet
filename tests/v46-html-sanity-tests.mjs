@@ -56,10 +56,19 @@ t('inpage.js web_accessible_resources cover the content.js injection scope', () 
   injBlock.matches.forEach(p => assert.ok(covers(p),
     'content.js runs on ' + p + ' but inpage.js is not web-accessible there — window.ordplug would be undefined (the V47.1 bug)'));
 });
-t('brc100-inpage.js web_accessible_resources cover the brc100-content scope', () => {
+t('V49.3: ONE content script injects both providers, and both inpage files are web-accessible on its exact scope', () => {
   const m = JSON.parse(fs.readFileSync(dir + 'manifest.json', 'utf8'));
-  const warBlock = m.web_accessible_resources.find(w => w.resources.includes('src/brc100-inpage.js'));
-  assert.ok(warBlock.matches.includes('<all_urls>'));
+  assert.strictEqual(m.content_scripts.length, 1, 'a second injector is how origin confusion comes back');
+  const inj = m.content_scripts[0];
+  assert.deepStrictEqual(inj.js, ['src/content.js']);
+  const content = fs.readFileSync(dir + 'src/content.js', 'utf8');
+  assert.ok(/src\/inpage\.js/.test(content) && /src\/brc100-inpage\.js/.test(content), 'content.js injects both providers');
+  ['src/inpage.js', 'src/brc100-inpage.js'].forEach(res => {
+    const warBlock = m.web_accessible_resources.find(w => w.resources.includes(res));
+    assert.ok(warBlock, res + ' is web-accessible');
+    inj.matches.forEach(p => assert.ok(warBlock.matches.includes('<all_urls>') || warBlock.matches.includes(p), res + ' covers ' + p));
+  });
+  assert.ok(!fs.existsSync(dir + 'src/brc100-content.js'), 'brc100-content.js is gone');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

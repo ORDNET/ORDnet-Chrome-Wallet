@@ -16,7 +16,8 @@ import vm from 'node:vm';
 import assert from 'node:assert';
 
 const dir = new URL('..', import.meta.url).pathname;
-const walletSrc = fs.readFileSync(dir + 'src/wallet.js', 'utf8');
+import { walletSource } from './lib/wallet-src.mjs';
+const walletSrc = walletSource();
 const viewerHtml = fs.readFileSync(dir + 'src/viewer.html', 'utf8');
 const swSrc = fs.readFileSync(dir + 'sw.js', 'utf8');
 const backgroundSrc = fs.readFileSync(dir + 'src/background.js', 'utf8');
@@ -64,15 +65,22 @@ const { feeNum, satNum, reservedNamespaceOf } = ctx;
  * ============================================================== */
 console.log('\npattern: satoshi amounts are not 32-bit truncated');
 
-t('the PoC value from the audit no longer wraps negative', () => {
-  // (3_000_000_000 | 0) === -1_294_967_296
-  assert.strictEqual(feeNum(3_000_000_000), 3_000_000_000);
+t('the PoC value from the audit no longer wraps negative (V49.3: refused, never honoured)', () => {
+  // (3_000_000_000 | 0) === -1_294_967_296. Since V49.3 a fee above the
+  // MAX_FEE_SAT sanity ceiling (1,000,000 sats) is refused => 0 => the
+  // wallet's own estimate is used. It is never negative and never paid.
+  assert.strictEqual(feeNum(3_000_000_000), 0);
 });
-t('a fee above 2^31 survives intact', () => {
-  assert.strictEqual(feeNum(2_147_483_648), 2_147_483_648);
+t('a fee above 2^31 does not wrap — it is refused', () => {
+  assert.strictEqual(feeNum(2_147_483_648), 0);
 });
-t('a whole-supply fee is preserved, not wrapped', () => {
-  assert.strictEqual(feeNum(2_100_000_000_000_000), 2_100_000_000_000_000);
+t('a whole-supply fee is refused, not wrapped', () => {
+  assert.strictEqual(feeNum(2_100_000_000_000_000), 0);
+});
+t('V49.3 sanity ceiling: 1,000,000 sats passes, 1,000,001 is refused', () => {
+  assert.strictEqual(feeNum(1_000_000), 1_000_000);
+  assert.strictEqual(feeNum(1_000_001), 0);
+  assert.strictEqual(feeNum('999999'), 999999);
 });
 t('absent fee is 0, so the wallet calculates its own', () => {
   assert.strictEqual(feeNum(undefined), 0);
@@ -93,7 +101,9 @@ t('no `.fee|0` remains anywhere in wallet.js', () => {
 });
 t('every fee call site goes through feeNum', () => {
   assert.ok(/feeNum\(params\.fee\)/.test(walletSrc), 'buildTx');
-  assert.ok((walletSrc.match(/feeNum\(p\.params\.fee\)/g) || []).length >= 3, 'approval paths');
+  // V49.3: pay / inscribe are planned in planForPending; sendTx inside buildTx
+  assert.ok((walletSrc.match(/feeNum\(p\.params\.fee\)/g) || []).length >= 2, 'plan paths');
+  assert.ok(!/buildSend\([^)]*p\.params\.fee\s*\)/.test(walletSrc), 'no raw page fee reaches buildSend');
 });
 
 /* ============================================================== *
@@ -155,17 +165,22 @@ t('a foreign change address is flagged, not just listed', () => {
   assert.ok(/chgForeign/.test(walletSrc));
   assert.ok(/This site is sending your change to an address that is not yours/.test(walletSrc));
 });
-t('an explicit fee is rendered and attributed to the site', () => {
-  assert.ok(/Miner fee set by site/.test(walletSrc));
+t('an explicit fee is rendered and attributed to the site (V49.3: from the plan, with the clamp note)', () => {
+  assert.ok(/Miner fee\$\{fi\.source==='site'\?' \(page\)'/.test(walletSrc));
+  assert.ok(/set by the page/.test(walletSrc));
+  assert.ok(/capped at 2× your wallet/.test(walletSrc));
 });
 t('script outputs disclose their destination, not only their amount', () => {
-  assert.ok(/scriptDest\(o\.scriptHex\)/.test(walletSrc));
+  // V49.3: every output is classified by txEffect() from the built bytes;
+  // an unknown script is labelled as such by scriptDest()
+  assert.ok(/const d=scriptDest\(hex\)/.test(walletSrc));
+  assert.ok(/custom script \(/.test(walletSrc));
 });
 t('inscription outputs disclose their destination address', () => {
-  assert.ok(/#\$\{i\} Inscription[\s\S]{0,200}o\.address/.test(walletSrc));
+  assert.ok(/#\$\{o\.i\} Inscription[\s\S]{0,120}o\.dest/.test(walletSrc));
 });
-t('OP_RETURN data is sliced before escaping, not after', () => {
-  assert.ok(/esc\(\(o\.data\|\|\[\]\)\.join\(' '\)\.slice\(0,60\)\)/.test(walletSrc));
+t('OP_RETURN text from the page is sliced before escaping, not after', () => {
+  assert.ok(/esc\(String\(p\.params\.data\)\)\.slice\(0,80\)/.test(walletSrc));
 });
 
 /* ============================================================== *

@@ -11,20 +11,115 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 | Internal build | Manifest version | Public Chrome Web Store version |
 |---|---|---|
-| V49.2 | 4.9.2 | **3.6.0** — next release |
-| V48 … V49.1 | 4.8.0 … 4.9.1 | security-fix builds, folded into 3.6.0 |
-| V47.2 | 4.7.2 | **3.5.1** — currently live |
-| V35 … V47.1 | 3.5.0 … 4.7.1 | internal development builds, not shipped individually |
-| V34 | 3.4.0 | 3.4.0 |
+| V49.3 | 4.9.3 | **4.9.3** — this release (submitted after 4.9.2 is approved) |
+| V49.2 | 4.9.2 | **4.9.2** — submitted 2026-09-01; store and internal numbering are one and the same from here on |
+| V35 … V49.1 | 3.5.0 … 4.9.1 | internal development and security-fix builds, never published individually |
+| V34 | 3.4.0 | 3.4.0 — live in the store from 2026-07-19 until 4.9.2 is approved |
 | V4 … V33 | 1.0.0 … 3.3.0 | internal development builds, pre-store |
 
-> Note: public store numbering diverges from internal numbering from V35
-> onward — the *internal* manifest version 3.5.0 (build V35) is unrelated to
-> the *public* store release 3.5.0, which packages build V47.2 (internal 4.7.2).
+> Correction (V49.3): earlier revisions of this table said that 3.5.1 was
+> "currently live" and that 4.9.2 would ship as 3.6.0. Neither happened —
+> the store stayed on 3.4.0 (build V34) the whole time, so store users had
+> none of V35 … V49.2, including all three security rounds. 4.9.2 was
+> submitted under its own number on 2026-09-01 to close that gap; from now on
+> the manifest version, the git tag, the store version, `getVersion()` and
+> `window.ordplug.version` are one identity (see RELEASE-4.9.3.md).
 
 ---
 
-## [4.9.2 (V49.2)] — 2026-08-13 → ships as store version 3.6.0
+## [4.9.3 (V49.3)] — 2026-09-01
+
+Fourth round: the Grok and ChatGPT product/security reviews of 4.9.2, worked
+point by point. Full detail in [SECURITY-FIXES-4.9.3.md](SECURITY-FIXES-4.9.3.md).
+
+### Security
+- **A page could set the miner fee behind the approval screen.** For a
+  page-requested inscription the screen printed `inscribeMinerFee(bytes)`
+  while execution used `feeNum(p.params.fee)` from the page verbatim — a small
+  inscription with a huge fee burned the difference to the miner. Now
+  `pay` / `inscribe` / `sendTx` build the UNSIGNED transaction first, the
+  screen is rendered from those exact bytes (`txEffect`), and approval signs
+  the same object and re-checks its fingerprint ("Safety stop" otherwise).
+  A page-supplied fee is clamped to [wallet estimate, 2× wallet estimate]
+  (`clampSiteFee`) and capped absolutely at 1,000,000 sats in `feeNum`; the
+  screen says what happened to the request. The purchase screen and its
+  execution now use one fee function too.
+- **BRC-100 skipped the request gate.** `brc100_request` overwrote the single
+  pending slot and opened a new window per call: popup spam, races, promises
+  that never settled. Both request families now go through `ORDPLUG_GATE`
+  with the same cooldown, there is one wallet window at a time (an open one
+  is focused, never duplicated), and closing it with a request pending
+  answers that request with an explicit `WERR_USER_DECLINED`.
+- **`isAuthenticated` / `waitForAuthentication` always said true.** They now
+  reflect vault present + unlock session present + inside the auto-lock
+  window (`ORDPLUG_AUTH`, tested); `waitForAuthentication` opens the unlock
+  screen and resolves when the session appears, or rejects after 5 minutes.
+- **"Remove wallet" left 20+ keys behind.** Certificates, BRC-100 grants,
+  budgets and history, address book, inscription history, chain tips, spent
+  guard, per-address domain caches, cooldowns and the viewer's Cache Storage
+  all survived and re-attached on a later restore. `removeWalletNow()` now
+  runs `wipeAllWalletData()`: `ALL_WALLET_STORAGE_KEYS` + every key under the
+  `ordplug_` / `ordnet_` / `web3domains:` prefixes, `session.clear()`, every
+  cache bucket — and a test fails if a storage-key literal appears in `src/`
+  that the wipe does not cover.
+- **BIP39 checksum.** `validateMnemonic()` only checked count + word list; a
+  typo that is itself a valid word opened a different, empty wallet. Full
+  checksum validation with a readable reason (`mnemonicProblem`).
+
+### Changed
+- **Recovery flow.** New wallets: "I wrote it down" → three random words must
+  be typed back before anything is encrypted. Imports: a live, mandatory
+  address preview under the phrase/WIF; the Import button is disabled until
+  the checksum passes and the address it opens is on screen. The create
+  screen states that the phrase is shown in this session only.
+- **Approval screen** (item 21): the amount that leaves the wallet first and
+  big, then one row per output (payment / inscription / OP_RETURN / change),
+  the ORDnet service fee as its own row with its output count, the miner fee
+  with its provenance (wallet / page / capped), and the inputs used.
+- **Certificates and x402 are reachable.** `acquireCertificate`,
+  `listCertificates`, `proveCertificate`, `relinquishCertificate` and
+  `payX402` were implemented in the popup but missing from the background
+  worker's allow-list, so no dApp could call them. One registry
+  (`src/brc100-methods.js`) now feeds the background worker and the popup;
+  a test checks the page shim and the handlers against it.
+- **BRC-100 page shim times out** after 5 minutes with `WERR_TIMEOUT`
+  instead of hanging forever (the ordplug provider already did this).
+- **A balance outage is not zero.** `getBalance()` throws on non-2xx or a
+  body without numeric fields; the home screen says "unavailable — not zero,
+  just unknown", a page gets an error instead of `0`.
+- **Active auto-lock.** A watchdog inside the wallet window checks the
+  session window every 30 s, so a window left open locks on time.
+- **One content script.** `content.js` injects both `window.ordplug` and
+  `window.CWI` and relays both message families; `brc100-content.js` is gone
+  and the manifest has one content-script block and one matching
+  web-accessible-resources block (`http(s)://*/*`).
+- **Release identity.** `getVersion()` returns `ordplug-<manifest version>`
+  and `window.ordplug.version` equals the manifest; the mapping table above
+  is corrected; RELEASE-4.9.3.md carries the zip hash.
+
+### Architecture
+- `src/wallet.js` (4,619 lines) is split into 25 ordered modules under
+  `src/wallet/` (`00-header` … `24-boot`), loaded by `wallet.html` in that
+  order as classic scripts sharing one global scope — the concatenation is
+  byte-identical to the former file, so behaviour is unchanged and every
+  fix above landed in its own module. Tests read the module list from
+  `wallet.html` (`tests/lib/wallet-src.mjs`) so they can never disagree
+  with the popup.
+
+### Tests
+- 192 → 243. New `tests/v49-release-tests.mjs` (one block per item above,
+  executed against the real `bsv` library in a Node vm) and
+  `tests/e2e/` (Playwright, loaded-extension browser tests — see README).
+
+### Kept as decided
+- Service-fee model (11 outputs, 3,996 sats) unchanged; the approval screen
+  now shows it as one labelled row with its output count.
+- Host permissions stay `http(s)://*/*` (all-sites provider model).
+- Licence stays source-available.
+
+---
+
+## [4.9.2 (V49.2)] — 2026-08-13 → submitted to the store as 4.9.2 on 2026-09-01
 
 Third round of the external review. Full detail in
 [SECURITY-FIXES-4.9.2.md](SECURITY-FIXES-4.9.2.md).
@@ -400,7 +495,7 @@ Covers the internal 3.7.0 → 3.7.2 iterations.
   sats for mini-prices) — a malicious site cannot smuggle in an absurd fee,
   and everything is always visible in the approval screen before signing.
 
-## [3.4.0 (V34)] — 2026-07-12 — **live store version**
+## [3.4.0 (V34)] — 2026-07-12 — store version from 2026-07-19 until 4.9.2 is approved
 
 ### Added
 - Full .web3 domain management on the domain detail screen:
