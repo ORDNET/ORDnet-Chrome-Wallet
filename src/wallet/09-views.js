@@ -1,13 +1,13 @@
 /* ---------- view helpers ---------- */
 function $(id){ return document.getElementById(id); }
-const VIEWS=['holdings','namedetail','more','unlock','migrate','setup','accounts','settings','approve','idle','send','sendord','listord','delist','receive','history','browse','domains','backup','changepw','sites','book','domain','utxo','upload','ordner','ordfile','brc100perm','brc100tx'];
+const VIEWS=['holdings','namedetail','unlock','migrate','setup','accounts','settings','approve','idle','send','sendord','listord','delist','receive','history','browse','domains','backup','changepw','sites','book','domain','utxo','upload','ordner','ordfile','brc100perm','brc100tx'];
 /* v4.2 — the five bottom-menu tabs (iOS layout): Wallet · Browser · Domains ·
    Upload · ORD/ner. The bar only shows on these views; sub-views (send,
    detail, approvals) fill the popup like before. */
-// V49.4 — the fifth tab is "More" (ORD/ner, UTXO tools, For sale, history,
-// settings). The ORD/ner view itself keeps the bar with "More" highlighted.
-const NAV_VIEWS=['idle','browse','domains','upload','more','ordner'];
-const NAV_PARENT={ ordner:'more' };
+// V49.4.1 — the five original tabs (Wallet · Browser · Domains · Upload ·
+// ORD/ner); user decision: a web3 wallet shows its tools directly.
+const NAV_VIEWS=['idle','browse','domains','upload','ordner'];
+const NAV_PARENT={};
 function showView(name){
   VIEWS.forEach(v=>$('view-'+v).classList.toggle('hidden', v!==name));
   const nav=$('bottomNav');

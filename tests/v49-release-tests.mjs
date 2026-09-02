@@ -350,11 +350,14 @@ t('content.js relays BOTH message families and injects BOTH providers', () => {
 
 /* ============================================================== */
 console.log('\nitem 18: one release identity');
-t('manifest, CHANGELOG head and README agree on 4.9.3', () => {
+t('manifest, CHANGELOG head and README agree on one version', () => {
   const m = JSON.parse(read('manifest.json'));
-  assert.strictEqual(m.version, '4.9.3');
-  assert.ok(/^## \[4\.9\.3 \(V49\.3\)\]/m.test(read('CHANGELOG.md')), 'CHANGELOG head');
-  assert.ok(/4\.9\.3/.test(read('README.md')), 'README mentions 4.9.3');
+  assert.ok(/^\d+\.\d+\.\d+$/.test(m.version));
+  const esc = m.version.replace(/\./g, '\\.');
+  const head = read('CHANGELOG.md').match(/^## \[(\d+\.\d+\.\d+) \(V[\d.]+\)\]/m);
+  assert.ok(head && head[1] === m.version, 'CHANGELOG head is ' + (head && head[1]) + ', manifest is ' + m.version);
+  assert.ok(new RegExp('version \\*\\*' + esc + '\\*\\*').test(read('README.md')), 'README states the version');
+  assert.ok(fs.existsSync(root + 'RELEASE-' + m.version + '.md'), 'RELEASE-' + m.version + '.md exists');
 });
 t('getVersion() reports the manifest version; window.ordplug.version equals it too', () => {
   assert.ok(/chrome\.runtime\.getManifest\(\)\.version/.test(read('src/background.js')));
@@ -370,6 +373,56 @@ t('the popup has no single wallet.js any more; the module list in wallet.html is
   assert.ok(files.length >= 20);
   assert.deepStrictEqual(files, [...files].sort(), 'load order == numeric prefix order');
 });
+
+/* ============================================================== */
+console.log('\nV49.5: home simplification is layout-only');
+{
+  const html = read('src/wallet.html'), hold = read('src/wallet/12-holdings.js'), ev = read('src/wallet/23-events.js'), views = read('src/wallet/09-views.js');
+  t('home has the four category rows with the SAME count ids the engine writes', () => {
+    ['sns', 'opns', 'bsvmap', 'sale'].forEach(c => assert.ok(new RegExp('data-cat="' + c + '"').test(html), c));
+    ['snsCount', 'opnsCount', 'bsvmapCount', 'saleCount'].forEach(id => assert.ok(new RegExp('id="' + id + '"').test(html), id));
+    assert.ok(/\$\('snsCount'\)\.textContent=/.test(hold), 'engine still writes the counts');
+  });
+  t('holdings and name-detail are real views; the tab strip survives hidden for the engine', () => {
+    ['holdings', 'namedetail'].forEach(v => assert.ok(new RegExp('id="view-' + v + '"').test(html), v));
+    assert.ok(/const VIEWS=\['holdings','namedetail',/.test(views));
+    assert.ok(!/id="view-more"/.test(html), 'the More view is gone');
+    ['tabSns', 'tabOpns', 'tabMap', 'tabSale', 'holdSearch', 'holdList', 'bulkPanel', 'btnBulkList'].forEach(id => assert.ok(new RegExp('id="' + id + '"').test(html), id));
+    assert.ok(/id="holdTabs"[^>]*class="seg hidden"|class="seg hidden" id="holdTabs"/.test(html), 'tabs hidden, not removed');
+  });
+  t('a holdings row opens the detail screen; the detail actions reuse the old data-* handlers', () => {
+    assert.ok(/class="holding" data-detail=/.test(hold));
+    assert.ok(!/data-open=\$\{\(item\.kind==='sns'/.test(hold), 'rows no longer link out directly');
+    ['data-list', 'data-delist', 'data-send', 'data-managedomain', 'data-open'].forEach(a => assert.ok(new RegExp(a + '=').test(hold.slice(hold.indexOf('function showNameDetail'))), a + ' in detail'));
+    assert.ok(/closest\('\[data-detail\]'\)/.test(ev));
+  });
+  t('header: all five actions visible on home (same ids => same handlers), no menu', () => {
+    const head = html.slice(html.indexOf('id="view-idle"'), html.indexOf('class="home-balance"'));
+    ['btnShowUtxo', 'btnShowAccounts', 'btnShowSettings', 'btnOpenTab', 'btnLock'].forEach(id => assert.ok(new RegExp('id="' + id + '"').test(head), id + ' in header'));
+    assert.ok(!/homeMenu|btnMenu|menu-item/.test(html), 'no ⋯ menu left');
+    assert.ok(/id="btnShowHistory"/.test(html.slice(html.indexOf('id="view-idle"'), html.indexOf('id="view-holdings"'))), 'history link on home');
+  });
+  t('bottom nav: the five original tabs, ORD/ner included', () => {
+    ['Wallet', 'Browser', 'Domains', 'Upload', 'ORD/ner'].forEach(l => assert.ok(new RegExp('<span>' + l.replace('/', '\\/') + '</span>').test(ev), l));
+    assert.ok(/data-nav="ordner" id="navOrdner"/.test(html));
+    assert.ok(/NAV_VIEWS=\['idle','browse','domains','upload','ordner'\]/.test(views));
+  });
+  t('category rows use the list tile classes (hic sns / opns / bsvmap / sale)', () => {
+    ['hic sns', 'hic opns', 'hic bsvmap', 'hic sale'].forEach(c => assert.ok(new RegExp('class="' + c + '" id="catMark').test(html), c));
+    assert.ok(/\$\('catMarkSns'\)\.innerHTML=SNS_MARK/.test(ev) && /\$\('catMarkMap'\)\.innerHTML=BSVMAP_MARK/.test(ev));
+    assert.ok(/\.holding \.hic,\.cat-row \.hic\{/.test(html), 'tile CSS extended to the rows, not duplicated');
+  });
+  t('after list / delist the wallet returns to the category screen, not home', () => {
+    const mk = read('src/wallet/14-marketplace.js');
+    assert.ok(!/setTimeout\(showIdle/.test(mk));
+    assert.ok((mk.match(/showHoldingsCategory\(_holdTab\)/g) || []).length >= 2);
+  });
+  t('no new colours or fonts: every colour in the new CSS is a var(--…) token', () => {
+    const css = html.slice(html.indexOf('V49.4 — home simplification'), html.indexOf('.holding .hchev'));
+    assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(css), 'hex colour in the new rules');
+    assert.ok(!/font-family:(?!inherit)/.test(css), 'font-family other than inherit');
+  });
+}
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

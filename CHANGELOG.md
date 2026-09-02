@@ -11,7 +11,9 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 | Internal build | Manifest version | Public Chrome Web Store version |
 |---|---|---|
-| V49.3 | 4.9.3 | **4.9.3** — this release (submitted after 4.9.2 is approved) |
+| V49.5 | 4.9.5 | **4.9.5** — this release: home simplification (layout only) |
+| V49.4 | 4.9.4 | internal iteration (⋯ menu + More tab variant), reviewed on screenshots, not published |
+| V49.3 | 4.9.3 | **4.9.3** — security and recovery round (submitted after 4.9.2 is approved) |
 | V49.2 | 4.9.2 | **4.9.2** — submitted 2026-09-01; store and internal numbering are one and the same from here on |
 | V35 … V49.1 | 3.5.0 … 4.9.1 | internal development and security-fix builds, never published individually |
 | V34 | 3.4.0 | 3.4.0 — live in the store from 2026-07-19 until 4.9.2 is approved |
@@ -24,6 +26,55 @@ number in parentheses. Dates are build dates taken from the archive files.
 > submitted under its own number on 2026-09-01 to close that gap; from now on
 > the manifest version, the git tag, the store version, `getVersion()` and
 > `window.ordplug.version` are one identity (see RELEASE-4.9.3.md).
+
+---
+
+## [4.9.5 (V49.5)] — 2026-09-01
+
+Cosmetic release: the popup's home screen and the names flow are re-laid
+out after a mockup review. No colours, fonts, tokens, engines, signing paths
+or storage keys changed; every button keeps its id and its handler.
+
+### Changed (layout / navigation only)
+- **Home** is the balance: amount large and centred, sats and dollar value
+  under it, the address as a pill, Send / Receive, then four category rows —
+  Your SNS domains, Your OpNS domains, Your BSVmaps, For sale — each with its
+  count on the right. The holdings list, tab strip, search, pager and bulk
+  panel moved off the home screen.
+- **Header** keeps all five actions visible (UTXO tools, Accounts, Settings,
+  Open in a full tab, Lock) — the 4.9.4 iteration folded them into a ⋯ menu;
+  reviewed and reverted: a web3 wallet shows its tools directly.
+- **Category rows** carry the same dark tile icons as the list rows (ORDnet
+  mark for SNS, @ for OpNS, orange block for BSVmaps, tag for For sale).
+- **Category screen** (`view-holdings`): one category at a time with a title
+  and count, search, pager and bulk mode — the existing holdings engine
+  rendering into the same element ids; the tab strip is kept hidden for it.
+  "Bulk list" / "Bulk delist" sits top-right.
+- **Name detail** (`view-namedetail`): tapping a row opens a screen with the
+  item's facts (type, status, listed price, district, location) and its
+  actions under each other — List for sale / Remove listing, Send to address,
+  Target, routes and registry (SNS), Open in ORDnet search / on bsvmap.io.
+  The per-row icon buttons are gone; the actions carry the same `data-*`
+  attributes, so the delegated handlers are untouched.
+- **Bottom nav** unchanged: Wallet · Browser · Domains · Upload · ORD/ner
+  (the 4.9.4 "Names / More" variant was reverted for the same reason).
+  The Transaction history link stays on the home screen.
+- After signing a listing or a delist the wallet returns to the category
+  screen (same tab and page) instead of home; Back from List / Send / Delist
+  does the same.
+
+### Not in this release (by decision)
+- "Change price" on a listing (delist + relist in one step) and greying-out
+  of already-listed names inside bulk mode are logic changes and stay out of
+  a cosmetic release.
+- Watch-only accounts: agreed for a later release, mockup first.
+
+### Tests
+- 243 → 251: a V49.5 block in `tests/v49-release-tests.mjs` checks the
+  layout is present, the engine ids survive, rows open the detail screen,
+  the five header icons and the five tabs are back, the category tiles
+  reuse the list tile classes, and the new CSS uses only `var(--…)` tokens
+  (no new colours or fonts).
 
 ---
 

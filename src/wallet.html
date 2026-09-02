@@ -85,14 +85,6 @@
   .cat-row .cat-mark svg{width:16px;height:16px}
   .cat-row .cat-chev{width:14px;height:14px;color:var(--text-secondary);flex-shrink:0}
   .cat-row .cat-chev::before{content:'›';font-size:16px;line-height:14px}
-  .menu-wrap{position:relative}
-  .menu-pop{position:absolute;right:0;top:34px;min-width:190px;background:var(--bg-solid);border:1px solid var(--border-color);border-radius:10px;
-    box-shadow:var(--shadow-md);padding:6px;z-index:20}
-  .menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:transparent;color:var(--text-primary);
-    font-family:inherit;font-size:13px;text-align:left;cursor:pointer;border-radius:7px}
-  .menu-item:hover{background:var(--bg-secondary)}
-  .menu-item .mi{width:16px;height:16px;display:flex;color:var(--text-secondary)}
-  .menu-item .mi svg{width:16px;height:16px}
   .btn-sm{padding:6px 10px;font-size:12px}
   .holding .hchev{color:var(--text-secondary);font-size:18px;line-height:1;flex-shrink:0}
   /* V49.3 — approval plan: the total first and big, then the rows */
@@ -247,13 +239,15 @@
   .holding{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border-color);
     border-radius:12px;background:var(--bg-card);margin-bottom:8px;cursor:pointer;transition:all .15s}
   .holding:hover{border-color:var(--text-secondary);transform:translateY(-1px);box-shadow:var(--shadow-sm)}
-  .holding .hic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  .holding .hic,.cat-row .hic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;
     flex-shrink:0;color:#fff;font-size:14px;font-weight:700}
   /* SNS mark: ORD/plug donut-C logo on a black tile */
-  .holding .hic.sns{background:#0a0a0a;border:1px solid rgba(255,255,255,0.14)}
-  .holding .hic.opns{background:#0a0a0a;border:1px solid rgba(255,255,255,0.14)} /* v4.1 — @ tile, no ✓ */
+  .holding .hic.sns,.cat-row .hic.sns{background:#0a0a0a;border:1px solid rgba(255,255,255,0.14)}
+  .holding .hic.opns,.cat-row .hic.opns{background:#0a0a0a;border:1px solid rgba(255,255,255,0.14)} /* v4.1 — @ tile, no ✓ */
   /* BSVmap mark: black tile with an orange square block in the middle (no emoji) */
-  .holding .hic.bsvmap{background:#111111;border:1px solid rgba(255,255,255,0.14)}
+  .holding .hic.bsvmap,.cat-row .hic.bsvmap{background:#111111;border:1px solid rgba(255,255,255,0.14)}
+  .cat-row .hic.sale{background:#0a0a0a;border:1px solid rgba(255,255,255,0.14)}
+  .cat-row .hic.sale svg{width:16px;height:16px}
   .holding .hm{flex:1;min-width:0}
   .holding .hn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .holding .hs{font-size:10px;color:var(--text-secondary);font-family:'SF Mono',Monaco,monospace}
@@ -428,18 +422,14 @@
     <!-- V49.4 — home simplification: two header actions. Accounts stays; UTXO
          tools, settings, open-in-tab, history and lock live in the ⋯ menu.
          Same button ids as before, so the handlers are unchanged. -->
+    <!-- V49.4.1 — all five header actions visible again (user decision: a
+         web3 wallet shows its tools). Same ids as 4.9.3. -->
     <div class="head-actions">
+      <button class="iconbtn" id="btnShowUtxo" title="UTXO tools"></button>
       <button class="iconbtn" id="btnShowAccounts" title="Accounts"></button>
-      <div class="menu-wrap">
-        <button class="iconbtn" id="btnMenu" title="More" aria-haspopup="true" aria-expanded="false"></button>
-        <div id="homeMenu" class="menu-pop hidden">
-          <button class="menu-item" id="btnShowUtxo"><span class="mi"></span>UTXO tools</button>
-          <button class="menu-item" id="btnShowHistory"><span class="mi"></span>Transaction history</button>
-          <button class="menu-item" id="btnShowSettings"><span class="mi"></span>Settings</button>
-          <button class="menu-item" id="btnOpenTab"><span class="mi"></span>Open in a full tab</button>
-          <button class="menu-item" id="btnLock"><span class="mi"></span>Lock wallet</button>
-        </div>
-      </div>
+      <button class="iconbtn" id="btnShowSettings" title="Settings"></button>
+      <button class="iconbtn" id="btnOpenTab" title="Open in a full tab"></button>
+      <button class="iconbtn" id="btnLock" title="Lock wallet"></button>
     </div>
   </div>
   <div class="home-balance">
@@ -461,12 +451,15 @@
 
   <!-- V49.4 — the four categories; each opens the holdings screen on that tab -->
   <div class="card cat-card" style="margin-top:14px">
-    <button class="cat-row" data-cat="sns"><span class="cat-mark sns" id="catMarkSns"></span><span class="cat-label">Your SNS domains</span><span class="count-pill" id="snsCount">…</span><span class="cat-chev"></span></button>
-    <button class="cat-row" data-cat="opns"><span class="cat-mark opns" id="catMarkOpns"></span><span class="cat-label">Your OpNS domains</span><span class="count-pill" id="opnsCount">…</span><span class="cat-chev"></span></button>
-    <button class="cat-row" data-cat="bsvmap"><span class="cat-mark bsvmap" id="catMarkMap"></span><span class="cat-label">Your BSVmaps</span><span class="count-pill" id="bsvmapCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="sns"><span class="hic sns" id="catMarkSns"></span><span class="cat-label">Your SNS domains</span><span class="count-pill" id="snsCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="opns"><span class="hic opns" id="catMarkOpns"></span><span class="cat-label">Your OpNS domains</span><span class="count-pill" id="opnsCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="bsvmap"><span class="hic bsvmap" id="catMarkMap"></span><span class="cat-label">Your BSVmaps</span><span class="count-pill" id="bsvmapCount">…</span><span class="cat-chev"></span></button>
   </div>
   <div class="card cat-card" style="margin-top:10px">
-    <button class="cat-row" data-cat="sale"><span class="cat-mark sale" id="catMarkSale"></span><span class="cat-label">For sale</span><span class="count-pill" id="saleCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="sale"><span class="hic sale" id="catMarkSale"></span><span class="cat-label">For sale</span><span class="count-pill" id="saleCount">…</span><span class="cat-chev"></span></button>
+  </div>
+  <div class="row-tools" style="justify-content:center;margin-top:12px">
+    <button class="link" id="btnShowHistory">Transaction history</button>
   </div>
 </div>
 
@@ -522,18 +515,6 @@
   </div>
   <div class="card" style="padding:4px 14px" id="ndFacts"></div>
   <div class="card cat-card" style="margin-top:10px" id="ndActions"></div>
-</div>
-
-<!-- MORE (V49.4) — the fifth tab: the tools you don't use every day -->
-<div id="view-more" class="hidden">
-  <div class="head"><div class="logo"><img src="../icons/icon128.png" alt="ORDnet"></div><div class="t"><div class="title">More</div><div class="subtitle">Tools and settings</div></div></div>
-  <div class="card cat-card">
-    <button class="cat-row" id="moreOrdner"><span class="cat-mark" id="moreMarkOrdner"></span><span class="cat-label">ORD/ner — on-chain files</span><span class="cat-chev"></span></button>
-    <button class="cat-row" id="moreUtxo"><span class="cat-mark" id="moreMarkUtxo"></span><span class="cat-label">UTXO tools</span><span class="cat-chev"></span></button>
-    <button class="cat-row" id="moreSale"><span class="cat-mark" id="moreMarkSale"></span><span class="cat-label">For sale</span><span class="cat-chev"></span></button>
-    <button class="cat-row" id="moreHistory"><span class="cat-mark" id="moreMarkHistory"></span><span class="cat-label">Transaction history</span><span class="cat-chev"></span></button>
-    <button class="cat-row" id="moreSettings"><span class="cat-mark" id="moreMarkSettings"></span><span class="cat-label">Settings</span><span class="cat-chev"></span></button>
-  </div>
 </div>
 
 <!-- RECEIVE -->
@@ -1121,7 +1102,7 @@
   <button data-nav="browse" id="navBrowser"></button>
   <button data-nav="domains" id="navDomains"></button>
   <button data-nav="upload" id="navUpload"></button>
-  <button data-nav="more" id="navOrdner"></button>
+  <button data-nav="ordner" id="navOrdner"></button>
 </nav>
 
 <script src="../lib/bsv.min.js"></script>

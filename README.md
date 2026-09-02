@@ -1,7 +1,7 @@
 # ORD/plug — ORDnet Web3 Browser & Wallet
 
 [![tests](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml/badge.svg)](https://github.com/ORDNET/ORDnet-Chrome-Wallet/actions/workflows/test.yml)
-[![test count](https://img.shields.io/badge/tests-243_across_11_suites_%2B_e2e-2b8a3e?style=flat-square)](#tests)
+[![test count](https://img.shields.io/badge/tests-251_across_11_suites_%2B_e2e-2b8a3e?style=flat-square)](#tests)
 [![platform](https://img.shields.io/badge/platform-Chrome_Manifest_V3-364fc7?style=flat-square)](#what-this-extension-may-touch)
 [![store](https://img.shields.io/badge/Chrome_Web_Store-ORDnet_Web3_Browser-5f3dc4?style=flat-square)](#versioning)
 [![license](https://img.shields.io/badge/license-source--available-6a737d?style=flat-square)](LICENSE)
@@ -12,7 +12,7 @@ read your on-chain mail and files, and connect BRC-100 apps — with your keys
 encrypted locally and never leaving your machine.
 
 Live in the Chrome Web Store as **ORDnet Web3 Browser**. This repository is
-version **4.9.3**; the store version, the git tag, the manifest,
+version **4.9.5**; the store version, the git tag, the manifest,
 `getVersion()` and `window.ordplug.version` carry the same number (see
 [Versioning](#versioning)). It contains the complete, unminified source of the
 shipping extension, published source-available: a wallet you can read and audit before you trust — while the code itself remains ORDnet's.
@@ -22,6 +22,9 @@ shipping extension, published source-available: a wallet you can read and audit 
 - **Web3 browsing** — resolve and open `name.web3` (and the other recognised
   TLDs) straight from the extension; content is on-chain 1Sat Ordinals
   inscriptions.
+- **Home = your balance** (4.9.5) — amount, address, Send / Receive, and four
+  category rows (SNS domains, OpNS domains, BSVmaps, For sale) that open one
+  list at a time; tap a name for its detail screen with every action.
 - **Wallet** — create with a 12-word BIP39 phrase (BIP44,
   `m/44'/236'/0'/0/0`) or import via phrase / WIF; multiple accounts;
   encrypted local storage; password-gated backup.
@@ -97,7 +100,7 @@ The extension is self-contained — no build step, no `npm install`.
 ## Source layout
 
 ```
-manifest.json            MV3 manifest — version 4.9.3
+manifest.json            MV3 manifest — version 4.9.5
 src/background.js        service worker: routing, request gate, auth state, one wallet window
 src/brc100-methods.js    THE list of BRC-100 methods (direct / popup / refused) — shared
 src/content.js           the one content script: injects both providers, relays both families
@@ -119,10 +122,10 @@ tests/*.mjs              bare-Node suites;  tests/e2e/  Playwright loaded-extens
 
 ```bash
 for t in tests/*.mjs; do node "$t"; done
-# -> eleven summaries, 243 passed in total, 0 failed
+# -> eleven summaries, 251 passed in total, 0 failed
 ```
 
-Eleven suites, 243 tests, on bare Node ≥ 18: signAction phases A/B, SNS
+Eleven suites, 251 tests, on bare Node ≥ 18: signAction phases A/B, SNS
 verification, security gates, SPV & budget, certificates & x402, HTML
 sanity, the V47 request gate, the V48 audit-regression suite, and the V49.3
 release suite (fee clamp and plan/fingerprint against the real `bsv`
@@ -145,11 +148,11 @@ cd tests/e2e && npm install && npx playwright install chromium && npm test
 ## Versioning
 
 From 4.9.2 (submitted 1 September 2026) the Chrome Web Store version equals
-the manifest version, the git tag, `getVersion()` (`ordplug-4.9.3`) and
+the manifest version, the git tag, `getVersion()` (`ordplug-4.9.5`) and
 `window.ordplug.version`. Before that the store was on 3.4.0 (build V34)
 while development continued to 4.9.2 — the corrected mapping table and the
 full history are in [CHANGELOG.md](CHANGELOG.md); the release zip hash is in
-[RELEASE-4.9.3.md](RELEASE-4.9.3.md).
+[RELEASE-4.9.5.md](RELEASE-4.9.5.md).
 
 ## Related
 

@@ -30,30 +30,11 @@ function wireEvents(){
   // home
   $('btnShowSend').addEventListener('click', showSend);
   $('btnShowReceive').addEventListener('click', showReceive);
-  // V49.4 — ⋯ menu on home
-  $('btnMenu').innerHTML=ICONS.dots;
-  const _menu=$('homeMenu');
-  function closeMenu(){ _menu.classList.add('hidden'); $('btnMenu').setAttribute('aria-expanded','false'); }
-  $('btnMenu').addEventListener('click', e=>{ e.stopPropagation(); const open=_menu.classList.toggle('hidden'); $('btnMenu').setAttribute('aria-expanded', open?'false':'true'); });
-  document.addEventListener('click', e=>{ if(!e.target.closest('.menu-wrap')) closeMenu(); });
-  _menu.querySelectorAll('.menu-item').forEach(b=>b.addEventListener('click', closeMenu));
-  $('btnShowUtxo').querySelector('.mi').innerHTML=ICONS.utxo;
-  $('btnShowHistory').querySelector('.mi').innerHTML=ICONS.history;
-  $('btnShowSettings').querySelector('.mi').innerHTML=ICONS.gear;
-  $('btnOpenTab').querySelector('.mi').innerHTML=ICONS.externalTab;
-  $('btnLock').querySelector('.mi').innerHTML=ICONS.lock;
   // category rows → holdings screen; back; name detail back
   document.querySelectorAll('.cat-row[data-cat]').forEach(b=>b.addEventListener('click', ()=>showHoldingsCategory(b.dataset.cat)));
   $('catMarkSns').innerHTML=SNS_MARK; $('catMarkOpns').innerHTML=OPNS_MARK; $('catMarkMap').innerHTML=BSVMAP_MARK; $('catMarkSale').innerHTML=ICONS.tag;
   $('btnHoldBack').innerHTML=ICONS.back; $('btnHoldBack').addEventListener('click', showIdle);
   $('btnNdBack').innerHTML=ICONS.back; $('btnNdBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
-  // More tab
-  $('moreMarkOrdner').innerHTML=ICONS.navFolder; $('moreMarkUtxo').innerHTML=ICONS.utxo; $('moreMarkSale').innerHTML=ICONS.tag; $('moreMarkHistory').innerHTML=ICONS.history; $('moreMarkSettings').innerHTML=ICONS.gear;
-  $('moreOrdner').addEventListener('click', showOrdner);
-  $('moreUtxo').addEventListener('click', showUtxoTools);
-  $('moreSale').addEventListener('click', ()=>showHoldingsCategory('sale'));
-  $('moreHistory').addEventListener('click', showHistory);
-  $('moreSettings').addEventListener('click', showSettings);
   $('btnShowUtxo').addEventListener('click', showUtxoTools);
   $('btnShowAccounts').addEventListener('click', showAccounts);
   $('btnShowSettings').addEventListener('click', showSettings);
@@ -69,8 +50,11 @@ function wireEvents(){
   $('holdNext').addEventListener('click', ()=>{ _holdPage++; bulkReselectPage(); renderHoldings(); });
   $('btnLock').addEventListener('click', lockWallet);
   $('copyAddr').addEventListener('click', copyActiveAddress);
-  // (V49.4: btnShowUtxo/btnShowSettings/btnLock are menu items now — icons set above)
+  $('btnShowUtxo').innerHTML=ICONS.utxo;
   $('btnShowAccounts').innerHTML=ICONS.users;
+  $('btnShowSettings').innerHTML=ICONS.gear;
+  $('btnOpenTab').innerHTML=ICONS.externalTab;
+  $('btnLock').innerHTML=ICONS.lock;
   // receive / history / browse
   $('btnRcvBack').addEventListener('click', showIdle);
   $('rcvCopyBtn').addEventListener('click', copyReceiveAddress);
@@ -186,14 +170,14 @@ function wireEvents(){
   // v4.2 — bottom tab bar (iOS layout): Wallet · Browser · Domains · Upload · ORD/ner
   $('navWallet').innerHTML=ICONS.navWallet+'<span>Wallet</span>';
   $('navBrowser').innerHTML=ICONS.navBrowser+'<span>Browser</span>';
-  $('navDomains').innerHTML=ICONS.navGlobe+'<span>Names</span>';
+  $('navDomains').innerHTML=ICONS.navGlobe+'<span>Domains</span>';
   $('navUpload').innerHTML=ICONS.navUpload+'<span>Upload</span>';
-  $('navOrdner').innerHTML=ICONS.grid+'<span>More</span>';
+  $('navOrdner').innerHTML=ICONS.navFolder+'<span>ORD/ner</span>';
   $('navWallet').addEventListener('click', showIdle);
   $('navBrowser').addEventListener('click', showBrowse);
   $('navDomains').addEventListener('click', showDomains);
   $('navUpload').addEventListener('click', showUpload);
-  $('navOrdner').addEventListener('click', ()=>showView('more'));
+  $('navOrdner').addEventListener('click', showOrdner);
   // v4.2 — UTXO tools
   $('btnUtxoBack').addEventListener('click', showIdle);
   $('btnUtxoBack').innerHTML=ICONS.wallet;
