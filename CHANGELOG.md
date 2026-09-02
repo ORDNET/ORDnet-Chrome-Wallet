@@ -11,8 +11,8 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 | Internal build | Manifest version | Public Chrome Web Store version |
 |---|---|---|
-| V49.5 | 4.9.5 | **4.9.5** — this release: home simplification (layout only) |
-| V49.4 | 4.9.4 | internal iteration (⋯ menu + More tab variant), reviewed on screenshots, not published |
+| V49.6 | 4.9.6 | **4.9.6** — this release: home simplification (layout only) |
+| V49.4 … V49.5 | 4.9.4 … 4.9.5 | internal iterations (⋯ menu + More tab; @-tile for OpNS), reviewed on screenshots, not published |
 | V49.3 | 4.9.3 | **4.9.3** — security and recovery round (submitted after 4.9.2 is approved) |
 | V49.2 | 4.9.2 | **4.9.2** — submitted 2026-09-01; store and internal numbering are one and the same from here on |
 | V35 … V49.1 | 3.5.0 … 4.9.1 | internal development and security-fix builds, never published individually |
@@ -29,7 +29,7 @@ number in parentheses. Dates are build dates taken from the archive files.
 
 ---
 
-## [4.9.5 (V49.5)] — 2026-09-01
+## [4.9.6 (V49.6)] — 2026-09-01
 
 Cosmetic release: the popup's home screen and the names flow are re-laid
 out after a mockup review. No colours, fonts, tokens, engines, signing paths
@@ -45,7 +45,7 @@ or storage keys changed; every button keeps its id and its handler.
   Open in a full tab, Lock) — the 4.9.4 iteration folded them into a ⋯ menu;
   reviewed and reverted: a web3 wallet shows its tools directly.
 - **Category rows** carry the same dark tile icons as the list rows (ORDnet
-  mark for SNS, @ for OpNS, orange block for BSVmaps, tag for For sale).
+  mark for SNS and OpNS, orange block for BSVmaps, tag for For sale).
 - **Category screen** (`view-holdings`): one category at a time with a title
   and count, search, pager and bulk mode — the existing holdings engine
   rendering into the same element ids; the tab strip is kept hidden for it.
@@ -70,7 +70,7 @@ or storage keys changed; every button keeps its id and its handler.
 - Watch-only accounts: agreed for a later release, mockup first.
 
 ### Tests
-- 243 → 251: a V49.5 block in `tests/v49-release-tests.mjs` checks the
+- 243 → 251: a V49.6 block in `tests/v49-release-tests.mjs` checks the
   layout is present, the engine ids survive, rows open the detail screen,
   the five header icons and the five tabs are back, the category tiles
   reuse the list tile classes, and the new CSS uses only `var(--…)` tokens

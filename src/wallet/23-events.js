@@ -32,7 +32,7 @@ function wireEvents(){
   $('btnShowReceive').addEventListener('click', showReceive);
   // category rows → holdings screen; back; name detail back
   document.querySelectorAll('.cat-row[data-cat]').forEach(b=>b.addEventListener('click', ()=>showHoldingsCategory(b.dataset.cat)));
-  $('catMarkSns').innerHTML=SNS_MARK; $('catMarkOpns').innerHTML=OPNS_MARK; $('catMarkMap').innerHTML=BSVMAP_MARK; $('catMarkSale').innerHTML=ICONS.tag;
+  $('catMarkSns').innerHTML=SNS_MARK; $('catMarkOpns').innerHTML=SNS_MARK; /* V49.5 — user decision: SNS and OpNS share the ORDnet tile */ $('catMarkMap').innerHTML=BSVMAP_MARK; $('catMarkSale').innerHTML=ICONS.tag;
   $('btnHoldBack').innerHTML=ICONS.back; $('btnHoldBack').addEventListener('click', showIdle);
   $('btnNdBack').innerHTML=ICONS.back; $('btnNdBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
   $('btnShowUtxo').addEventListener('click', showUtxoTools);
