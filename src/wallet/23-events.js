@@ -30,11 +30,34 @@ function wireEvents(){
   // home
   $('btnShowSend').addEventListener('click', showSend);
   $('btnShowReceive').addEventListener('click', showReceive);
+  // V49.4 — ⋯ menu on home
+  $('btnMenu').innerHTML=ICONS.dots;
+  const _menu=$('homeMenu');
+  function closeMenu(){ _menu.classList.add('hidden'); $('btnMenu').setAttribute('aria-expanded','false'); }
+  $('btnMenu').addEventListener('click', e=>{ e.stopPropagation(); const open=_menu.classList.toggle('hidden'); $('btnMenu').setAttribute('aria-expanded', open?'false':'true'); });
+  document.addEventListener('click', e=>{ if(!e.target.closest('.menu-wrap')) closeMenu(); });
+  _menu.querySelectorAll('.menu-item').forEach(b=>b.addEventListener('click', closeMenu));
+  $('btnShowUtxo').querySelector('.mi').innerHTML=ICONS.utxo;
+  $('btnShowHistory').querySelector('.mi').innerHTML=ICONS.history;
+  $('btnShowSettings').querySelector('.mi').innerHTML=ICONS.gear;
+  $('btnOpenTab').querySelector('.mi').innerHTML=ICONS.externalTab;
+  $('btnLock').querySelector('.mi').innerHTML=ICONS.lock;
+  // category rows → holdings screen; back; name detail back
+  document.querySelectorAll('.cat-row[data-cat]').forEach(b=>b.addEventListener('click', ()=>showHoldingsCategory(b.dataset.cat)));
+  $('catMarkSns').innerHTML=SNS_MARK; $('catMarkOpns').innerHTML=OPNS_MARK; $('catMarkMap').innerHTML=BSVMAP_MARK; $('catMarkSale').innerHTML=ICONS.tag;
+  $('btnHoldBack').innerHTML=ICONS.back; $('btnHoldBack').addEventListener('click', showIdle);
+  $('btnNdBack').innerHTML=ICONS.back; $('btnNdBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
+  // More tab
+  $('moreMarkOrdner').innerHTML=ICONS.navFolder; $('moreMarkUtxo').innerHTML=ICONS.utxo; $('moreMarkSale').innerHTML=ICONS.tag; $('moreMarkHistory').innerHTML=ICONS.history; $('moreMarkSettings').innerHTML=ICONS.gear;
+  $('moreOrdner').addEventListener('click', showOrdner);
+  $('moreUtxo').addEventListener('click', showUtxoTools);
+  $('moreSale').addEventListener('click', ()=>showHoldingsCategory('sale'));
+  $('moreHistory').addEventListener('click', showHistory);
+  $('moreSettings').addEventListener('click', showSettings);
   $('btnShowUtxo').addEventListener('click', showUtxoTools);
   $('btnShowAccounts').addEventListener('click', showAccounts);
   $('btnShowSettings').addEventListener('click', showSettings);
   // V46 Y4 — open the wallet in a full browser tab (monitor icon)
-  $('btnOpenTab').innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
   $('btnOpenTab').addEventListener('click', ()=>{ try{ chrome.tabs.create({ url: chrome.runtime.getURL('src/wallet.html') }); window.close(); }catch(_){} });
   $('btnShowHistory').addEventListener('click', showHistory);
   $('tabSns').addEventListener('click', ()=>setHoldTab('sns'));
@@ -46,10 +69,8 @@ function wireEvents(){
   $('holdNext').addEventListener('click', ()=>{ _holdPage++; bulkReselectPage(); renderHoldings(); });
   $('btnLock').addEventListener('click', lockWallet);
   $('copyAddr').addEventListener('click', copyActiveAddress);
-  $('btnShowUtxo').innerHTML=ICONS.utxo;   // v4.2 — user layout: UTXO tools replace the domains button
+  // (V49.4: btnShowUtxo/btnShowSettings/btnLock are menu items now — icons set above)
   $('btnShowAccounts').innerHTML=ICONS.users;
-  $('btnShowSettings').innerHTML=ICONS.gear;
-  $('btnLock').innerHTML=ICONS.lock;
   // receive / history / browse
   $('btnRcvBack').addEventListener('click', showIdle);
   $('rcvCopyBtn').addEventListener('click', copyReceiveAddress);
@@ -146,15 +167,15 @@ function wireEvents(){
     const b=e.target.closest('[data-book-del]'); if(!b) return;
     bookRemove(b.dataset.bookDel).then(renderBook);
   });
-  $('btnSoBack').addEventListener('click', showIdle);
+  $('btnSoBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
   $('soBtn').addEventListener('click', doSendOrdinal);
-  $('btnLoBack').addEventListener('click', showIdle);
+  $('btnLoBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
   $('loBtn').addEventListener('click', loShowConfirm);
   $('btnLoCancel').addEventListener('click', loShowForm);
   $('loConfirmBtn').addEventListener('click', doListOrdinal);
   $('loPrice').addEventListener('input', updateLoPriceHint);
   // delist
-  $('btnDlBack').addEventListener('click', showIdle);
+  $('btnDlBack').addEventListener('click', ()=>showHoldingsCategory(_holdTab));
   $('dlBtn').addEventListener('click', doDelistNow);
   // bulk list (inline selection mode)
   $('btnBulkList').addEventListener('click', ()=>{ _bulkMode?exitBulkMode():enterBulkMode(); });
@@ -165,14 +186,14 @@ function wireEvents(){
   // v4.2 — bottom tab bar (iOS layout): Wallet · Browser · Domains · Upload · ORD/ner
   $('navWallet').innerHTML=ICONS.navWallet+'<span>Wallet</span>';
   $('navBrowser').innerHTML=ICONS.navBrowser+'<span>Browser</span>';
-  $('navDomains').innerHTML=ICONS.navGlobe+'<span>Domains</span>';
+  $('navDomains').innerHTML=ICONS.navGlobe+'<span>Names</span>';
   $('navUpload').innerHTML=ICONS.navUpload+'<span>Upload</span>';
-  $('navOrdner').innerHTML=ICONS.navFolder+'<span>ORD/ner</span>';
+  $('navOrdner').innerHTML=ICONS.grid+'<span>More</span>';
   $('navWallet').addEventListener('click', showIdle);
   $('navBrowser').addEventListener('click', showBrowse);
   $('navDomains').addEventListener('click', showDomains);
   $('navUpload').addEventListener('click', showUpload);
-  $('navOrdner').addEventListener('click', showOrdner);
+  $('navOrdner').addEventListener('click', ()=>showView('more'));
   // v4.2 — UTXO tools
   $('btnUtxoBack').addEventListener('click', showIdle);
   $('btnUtxoBack').innerHTML=ICONS.wallet;
@@ -217,6 +238,8 @@ function wireEvents(){
     if(cb){ bulkToggle(parseInt(cb.dataset.bulkchk,10)); return; }
     const br=e.target.closest('[data-bulkrow]');
     if(br){ bulkToggle(parseInt(br.dataset.bulkrow,10)); return; }
+    const dt=e.target.closest('[data-detail]');
+    if(dt){ showNameDetail(parseInt(dt.dataset.detail,10)); return; }
     const l=e.target.closest('[data-list]');
     if(l){ startListOrdinal(parseInt(l.dataset.list,10)); return; }
     const d1=e.target.closest('[data-delist]');

@@ -155,10 +155,10 @@ async function doSend(){
 }
 async function showIdle(){
   showView('idle');
-  $('idleName').textContent='BitcoinSV';
+  $('idleName').textContent=(_accounts[_active]&&_accounts[_active].name)||'Account';
   $('idleAddress').textContent=_address;
   $('idleBalance').textContent='\u2026';
-  $('idleBalanceSub').textContent=(_accounts[_active].name||'Account')+' \u00b7 confirmed + unconfirmed';
+  $('idleBalanceSub').textContent='confirmed + unconfirmed';
   // leave bulk-selection mode when (re)entering home
   _bulkMode=false; _bulkArmed=false; _bulkSel.clear();
   $('bulkPanel').classList.add('hidden'); $('btnBulkList').classList.remove('on');
@@ -169,7 +169,7 @@ async function showIdle(){
     const b=await getBalance();
     const sats=(b.confirmed||0)+(b.unconfirmed||0);
     $('idleBalance').innerHTML=bsvFmt(sats)+' <small>BSV</small>';
-    let sub=(_accounts[_active].name||'Account')+' · '+sats.toLocaleString()+' sats';
+    let sub=sats.toLocaleString()+' sats';
     try{
       const r=await fetch(`${API_BASE}/exchangerate`);
       if(r.ok){ const j=await r.json(); const rate=parseFloat(j.rate);
@@ -179,7 +179,7 @@ async function showIdle(){
   }catch(e){
     // outage, rate limit or malformed answer: say so, never print 0
     $('idleBalance').textContent='unavailable';
-    $('idleBalanceSub').textContent=(_accounts[_active].name||'Account')+' \u00b7 balance service unreachable \u2014 not zero, just unknown';
+    $('idleBalanceSub').textContent='balance service unreachable \u2014 not zero, just unknown';
   }
 }
 function bsvFmt(sats){

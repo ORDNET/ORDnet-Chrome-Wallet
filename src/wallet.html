@@ -71,6 +71,30 @@
   .alert-success.show{display:flex}
   .kv{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-color);font-size:13px}
   .kv:last-child{border-bottom:none}
+  /* V49.4 — home simplification (layout only; colours, fonts and tokens unchanged) */
+  .home-balance{text-align:center;padding:10px 0 2px}
+  .home-balance .balance{font-size:32px}
+  .home-balance .balance-label{margin-bottom:10px}
+  .cat-card{padding:2px 6px}
+  .cat-row{display:flex;align-items:center;gap:10px;width:100%;padding:11px 8px;border:none;background:transparent;color:var(--text-primary);
+    font-family:inherit;font-size:13px;font-weight:600;text-align:left;cursor:pointer;border-bottom:1px solid var(--border-color)}
+  .cat-row:last-child{border-bottom:none}
+  .cat-row:hover{background:var(--bg-secondary);border-radius:8px}
+  .cat-row .cat-label{flex:1}
+  .cat-row .cat-mark{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0}
+  .cat-row .cat-mark svg{width:16px;height:16px}
+  .cat-row .cat-chev{width:14px;height:14px;color:var(--text-secondary);flex-shrink:0}
+  .cat-row .cat-chev::before{content:'›';font-size:16px;line-height:14px}
+  .menu-wrap{position:relative}
+  .menu-pop{position:absolute;right:0;top:34px;min-width:190px;background:var(--bg-solid);border:1px solid var(--border-color);border-radius:10px;
+    box-shadow:var(--shadow-md);padding:6px;z-index:20}
+  .menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:transparent;color:var(--text-primary);
+    font-family:inherit;font-size:13px;text-align:left;cursor:pointer;border-radius:7px}
+  .menu-item:hover{background:var(--bg-secondary)}
+  .menu-item .mi{width:16px;height:16px;display:flex;color:var(--text-secondary)}
+  .menu-item .mi svg{width:16px;height:16px}
+  .btn-sm{padding:6px 10px;font-size:12px}
+  .holding .hchev{color:var(--text-secondary);font-size:18px;line-height:1;flex-shrink:0}
   /* V49.3 — approval plan: the total first and big, then the rows */
   .plan-total{padding:6px 0 12px;border-bottom:1px solid var(--border-color);margin-bottom:4px;text-align:center}
   .plan-total-n{font-size:28px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
@@ -400,24 +424,31 @@
 <div id="view-idle" class="hidden">
   <div class="head">
     <div class="logo"><img src="../icons/icon128.png" alt="ORDnet"></div>
-    <div class="t"><div class="title" id="idleName">BitcoinSV</div><div class="subtitle">Wallet by ORDnet.io</div></div>
-    <!-- v4.2 — user layout: domains button removed from the top bar (Domains
-         lives in the bottom menu); the UTXO tools take its place -->
+    <div class="t"><div class="title" id="idleName">Account</div><div class="subtitle">ORD/plug · Wallet by ORDnet.io</div></div>
+    <!-- V49.4 — home simplification: two header actions. Accounts stays; UTXO
+         tools, settings, open-in-tab, history and lock live in the ⋯ menu.
+         Same button ids as before, so the handlers are unchanged. -->
     <div class="head-actions">
-      <button class="iconbtn" id="btnShowUtxo" title="UTXO tools"></button>
       <button class="iconbtn" id="btnShowAccounts" title="Accounts"></button>
-      <button class="iconbtn" id="btnShowSettings" title="Settings"></button>
-      <button class="iconbtn" id="btnOpenTab" title="Open in a full tab"></button>
-      <button class="iconbtn" id="btnLock" title="Lock wallet"></button>
+      <div class="menu-wrap">
+        <button class="iconbtn" id="btnMenu" title="More" aria-haspopup="true" aria-expanded="false"></button>
+        <div id="homeMenu" class="menu-pop hidden">
+          <button class="menu-item" id="btnShowUtxo"><span class="mi"></span>UTXO tools</button>
+          <button class="menu-item" id="btnShowHistory"><span class="mi"></span>Transaction history</button>
+          <button class="menu-item" id="btnShowSettings"><span class="mi"></span>Settings</button>
+          <button class="menu-item" id="btnOpenTab"><span class="mi"></span>Open in a full tab</button>
+          <button class="menu-item" id="btnLock"><span class="mi"></span>Lock wallet</button>
+        </div>
+      </div>
     </div>
   </div>
-  <div class="card">
+  <div class="home-balance">
     <div class="balance" id="idleBalance">…</div>
     <div class="balance-label" id="idleBalanceSub">confirmed + unconfirmed</div>
-    <div class="addr-row">
-      <div class="addr-pill" id="copyAddr" title="Copy address">
+    <div class="addr-row" style="justify-content:center">
+      <div class="addr-pill" id="copyAddr" title="Copy address" style="flex:0 1 auto">
         <span class="a" id="idleAddress">—</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         <span class="copied-note hidden" id="copiedNote">Copied</span>
       </div>
     </div>
@@ -428,17 +459,32 @@
     <button class="btn btn-secondary" id="btnShowReceive">Receive</button>
   </div>
 
-  <!-- v4.2 (iOS v2.2.1 row order): row 1 SNS + OpNS, row 2 BSVmaps + For sale -->
-  <div class="holdings-head">
-    <div class="seg" style="flex:1;margin:0">
-      <button id="tabSns" class="on">SNS names <span class="count-pill" id="snsCount">…</span></button>
-      <button id="tabOpns">OpNS <span class="count-pill" id="opnsCount">…</span></button>
-    </div>
+  <!-- V49.4 — the four categories; each opens the holdings screen on that tab -->
+  <div class="card cat-card" style="margin-top:14px">
+    <button class="cat-row" data-cat="sns"><span class="cat-mark sns" id="catMarkSns"></span><span class="cat-label">Your SNS domains</span><span class="count-pill" id="snsCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="opns"><span class="cat-mark opns" id="catMarkOpns"></span><span class="cat-label">Your OpNS domains</span><span class="count-pill" id="opnsCount">…</span><span class="cat-chev"></span></button>
+    <button class="cat-row" data-cat="bsvmap"><span class="cat-mark bsvmap" id="catMarkMap"></span><span class="cat-label">Your BSVmaps</span><span class="count-pill" id="bsvmapCount">…</span><span class="cat-chev"></span></button>
   </div>
-  <div class="seg" style="margin:0 0 10px">
-    <button id="tabMap">BSVmaps <span class="count-pill" id="bsvmapCount">…</span></button>
-    <button id="tabSale">For sale <span class="count-pill" id="saleCount">…</span></button>
-    <button id="btnBulkList">Bulk list</button>
+  <div class="card cat-card" style="margin-top:10px">
+    <button class="cat-row" data-cat="sale"><span class="cat-mark sale" id="catMarkSale"></span><span class="cat-label">For sale</span><span class="count-pill" id="saleCount">…</span><span class="cat-chev"></span></button>
+  </div>
+</div>
+
+<!-- HOLDINGS — one category at a time (V49.4). Everything that used to sit on
+     the home screen (tabs, search, pager, bulk panel, list) lives here now
+     with the SAME element ids, so the holdings engine is untouched. -->
+<div id="view-holdings" class="hidden">
+  <div class="head">
+    <button class="iconbtn" id="btnHoldBack" title="Back"></button>
+    <div class="t"><div class="title" id="holdTitle">Names</div><div class="subtitle" id="holdSub">&nbsp;</div></div>
+    <div class="head-actions"><button class="btn btn-secondary btn-sm" id="btnBulkList">Bulk list</button></div>
+  </div>
+  <!-- the tab strip is kept for the engine (setHoldTab toggles these) but not shown -->
+  <div class="seg hidden" id="holdTabs">
+    <button id="tabSns" class="on">SNS names</button>
+    <button id="tabOpns">OpNS</button>
+    <button id="tabMap">BSVmaps</button>
+    <button id="tabSale">For sale</button>
   </div>
   <input id="holdSearch" class="form-input" placeholder="Search…" spellcheck="false" style="margin-bottom:10px">
   <div id="holdPager" class="hold-pager hidden" style="margin:0 0 10px">
@@ -463,9 +509,30 @@
     </div>
   </div>
   <div id="holdList"><div class="empty-note">Loading…</div></div>
+</div>
 
-  <div class="row-tools" style="justify-content:center;margin-top:12px">
-    <button class="link" id="btnShowHistory">Transaction history</button>
+<!-- NAME DETAIL (V49.4) — one item, all its actions under each other. The
+     action buttons carry the same data-* attributes the list rows used to
+     (data-list / data-delist / data-send / data-managedomain / data-open), so
+     the delegated click handler in events.js serves them unchanged. -->
+<div id="view-namedetail" class="hidden">
+  <div class="head">
+    <button class="iconbtn" id="btnNdBack" title="Back"></button>
+    <div class="t"><div class="title" id="ndName">—</div><div class="subtitle" id="ndSub">&nbsp;</div></div>
+  </div>
+  <div class="card" style="padding:4px 14px" id="ndFacts"></div>
+  <div class="card cat-card" style="margin-top:10px" id="ndActions"></div>
+</div>
+
+<!-- MORE (V49.4) — the fifth tab: the tools you don't use every day -->
+<div id="view-more" class="hidden">
+  <div class="head"><div class="logo"><img src="../icons/icon128.png" alt="ORDnet"></div><div class="t"><div class="title">More</div><div class="subtitle">Tools and settings</div></div></div>
+  <div class="card cat-card">
+    <button class="cat-row" id="moreOrdner"><span class="cat-mark" id="moreMarkOrdner"></span><span class="cat-label">ORD/ner — on-chain files</span><span class="cat-chev"></span></button>
+    <button class="cat-row" id="moreUtxo"><span class="cat-mark" id="moreMarkUtxo"></span><span class="cat-label">UTXO tools</span><span class="cat-chev"></span></button>
+    <button class="cat-row" id="moreSale"><span class="cat-mark" id="moreMarkSale"></span><span class="cat-label">For sale</span><span class="cat-chev"></span></button>
+    <button class="cat-row" id="moreHistory"><span class="cat-mark" id="moreMarkHistory"></span><span class="cat-label">Transaction history</span><span class="cat-chev"></span></button>
+    <button class="cat-row" id="moreSettings"><span class="cat-mark" id="moreMarkSettings"></span><span class="cat-label">Settings</span><span class="cat-chev"></span></button>
   </div>
 </div>
 
@@ -1054,7 +1121,7 @@
   <button data-nav="browse" id="navBrowser"></button>
   <button data-nav="domains" id="navDomains"></button>
   <button data-nav="upload" id="navUpload"></button>
-  <button data-nav="ordner" id="navOrdner"></button>
+  <button data-nav="more" id="navOrdner"></button>
 </nav>
 
 <script src="../lib/bsv.min.js"></script>

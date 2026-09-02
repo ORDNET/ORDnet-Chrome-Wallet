@@ -66,30 +66,62 @@ function holdRenderItem(item){
       ${holdStatusPill(item)}
     </div>`;
   }
-  // v4.1 — OpNS: display, resolve and send ONLY. No marketplace flows
-  // (list/delist deliberately absent — that decision has not been taken).
-  // v4.2 (iOS v2.6.1) — a domain listed on the DOMAIN registry gets a link to
-  // its Domains detail instead: deliberately NO second (bsvmap) listing.
-  const domainListed=(item.kind==='sns' && item.domainListedUsd!==undefined && item.domainListedUsd!==null);
-  const listBtn = item.kind==='opns' ? ''
-    : domainListed
-    ? `<button class="iconbtn" title="Manage domain listing (Domains tab)" data-managedomain="${esc(item.name)}">${ICONS.edit}</button>`
-    : item.status==='listed'
-    ? `<button class="iconbtn" title="Remove listing (delist)" data-delist="${idx}">${ICONS.x}</button>`
-    : `<button class="iconbtn" title="List for sale" data-list="${idx}">${ICONS.tag}</button>`;
+  // V49.4 — a row is the name, its subline and its status; tapping it opens
+  // the detail screen with every action. The per-row icon buttons moved there.
   return `
-    <div class="holding">
+    <div class="holding" data-detail="${idx}" style="cursor:pointer">
       <div class="hic ${item.kind}">${holdMark(item.kind)}</div>
-      <div class="hm" data-open="${(item.kind==='sns'||item.kind==='opns')
-        ? 'https://search.ordnet.io/?q='+encodeURIComponent(item.name)
-        : 'https://bsvmap.io/#'+item.district}" style="cursor:pointer">
+      <div class="hm">
         <div class="hn">${esc(item.name)}</div>
         <div class="hs">${holdSubline(item)}</div>
       </div>
       ${holdStatusPill(item)}
-      ${listBtn}
-      <button class="iconbtn" title="Send" data-send="${idx}">${ICONS.sendArrow}</button>
+      <span class="hchev">›</span>
     </div>`;
+}
+/* V49.4 — category screen: the holdings engine on ONE tab, with a title. */
+const HOLD_TITLES={ sns:['SNS domains','Your .web3 names on the SNS registry'], opns:['OpNS domains','Bare names, OpNS tree 0'], bsvmap:['BSVmaps','Your districts on bsvmap.io'], sale:['For sale','Your live marketplace listings'] };
+function showHoldingsCategory(tab){
+  showView('holdings');
+  setHoldTab(tab||_holdTab);
+  if(!_holdings.length) loadHoldings();
+}
+function updateHoldTitle(){
+  const t=HOLD_TITLES[_holdTab]||HOLD_TITLES.sns;
+  const n=holdFiltered().length;
+  if($('holdTitle')) $('holdTitle').textContent=t[0]+(n?' · '+n:'');
+  if($('holdSub')) $('holdSub').textContent=t[1];
+}
+/* V49.4 — name detail screen (facts + actions). Actions reuse the exact
+   data-* attributes the rows used to carry, so events.js is unchanged. */
+function showNameDetail(idx){
+  const item=_holdings[idx]; if(!item) return;
+  showView('namedetail');
+  $('ndName').textContent=item.name;
+  const kindLabel={ sns:'SNS domain', opns:'OpNS name', bsvmap:'BSVmap district' }[item.kind]||item.kind;
+  $('ndSub').textContent=kindLabel;
+  const price=listedPriceSats(item);
+  const facts=[
+    ['Type', kindLabel],
+    ['Status', item.status==='listed'?'Listed for sale':(item.status||'held')],
+    price?['Listed price', bsvFmt(price)+' BSV ('+price.toLocaleString()+' sats)']:null,
+    (item.domainListedUsd!==undefined&&item.domainListedUsd!==null)?['Domain registry','listed at $'+item.domainListedUsd]:null,
+    item.kind==='bsvmap'?['District', String(item.district)]:null,
+    item.currentTxid?['Location', shortUtxo(item.currentTxid, item.currentVout)]:null
+  ].filter(Boolean);
+  $('ndFacts').innerHTML=facts.map(([k,v])=>`<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`).join('');
+  const domainListed=(item.kind==='sns' && item.domainListedUsd!==undefined && item.domainListedUsd!==null);
+  const openUrl=(item.kind==='sns'||item.kind==='opns') ? 'https://search.ordnet.io/?q='+encodeURIComponent(item.name) : 'https://bsvmap.io/#'+item.district;
+  const rows=[];
+  if(item.kind!=='opns'){
+    if(domainListed)                 rows.push(`<button class="cat-row" data-managedomain="${esc(item.name)}"><span class="cat-mark">${ICONS.edit}</span><span class="cat-label">Manage domain listing</span><span class="cat-chev"></span></button>`);
+    else if(item.status==='listed')  rows.push(`<button class="cat-row" data-delist="${idx}"><span class="cat-mark">${ICONS.x}</span><span class="cat-label">Remove listing (delist)</span><span class="cat-chev"></span></button>`);
+    else                             rows.push(`<button class="cat-row" data-list="${idx}"><span class="cat-mark">${ICONS.tag}</span><span class="cat-label">List for sale</span><span class="cat-chev"></span></button>`);
+  }
+  rows.push(`<button class="cat-row" data-send="${idx}"><span class="cat-mark">${ICONS.sendArrow}</span><span class="cat-label">Send to address</span><span class="cat-chev"></span></button>`);
+  if(item.kind==='sns') rows.push(`<button class="cat-row" data-managedomain="${esc(item.name)}"><span class="cat-mark">${ICONS.route}</span><span class="cat-label">Target, routes and registry</span><span class="cat-chev"></span></button>`);
+  rows.push(`<button class="cat-row" data-open="${esc(openUrl)}"><span class="cat-mark">${ICONS.externalTab}</span><span class="cat-label">${item.kind==='bsvmap'?'Open on bsvmap.io':'Open in ORDnet search'}</span><span class="cat-chev"></span></button>`);
+  $('ndActions').innerHTML=rows.join('');
 }
 function holdFiltered(){
   const q=_holdSearch.trim().toLowerCase();
@@ -125,6 +157,7 @@ function renderHoldings(){
   } else {
     list.innerHTML=slice.map(holdRenderItem).join('');
   }
+  if(typeof updateHoldTitle==='function') updateHoldTitle();
   const pager=$('holdPager');
   if(total>HOLD_PER_PAGE){
     pager.classList.remove('hidden');
@@ -147,6 +180,7 @@ function setHoldTab(tab){
   if(tab==='opns' && _bulkMode) exitBulkMode();
   bulkReselectPage();
   renderHoldings();
+  updateHoldTitle();
 }
 /* Marketplace listings live in a separate store (GET /api/listings), NOT in the
    V30 indexer — the indexer keeps reporting "held" for a listed district. Merge

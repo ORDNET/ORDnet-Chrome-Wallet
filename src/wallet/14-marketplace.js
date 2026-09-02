@@ -341,7 +341,7 @@ async function doDelistNow(){
     ok.textContent='Listing removed and verified gone from the registry — '+it.name+' is no longer for sale.';
     ok.className='alert alert-success show';
     setTimeout(loadHoldings, 1200);
-    setTimeout(showIdle, 3000); // back to the wallet, same tab + page
+    setTimeout(()=>showHoldingsCategory(_holdTab), 3000); // V49.4 — back to the category, same tab + page
   }catch(e){
     err($('dlErr'), e.message||'Delist failed.');
     btn.disabled=false;
@@ -414,7 +414,7 @@ async function doListOrdinal(){
     ok.className='alert alert-success show';
     $('loConfirmBtns').classList.add('hidden'); // signed — prevent a double sign
     setTimeout(loadHoldings, 1500);
-    setTimeout(showIdle, 3500); // back to the wallet — the item now shows its listed badge
+    setTimeout(()=>showHoldingsCategory(_holdTab), 3500); // V49.4 — back to the category — the item now shows its listed badge
   }catch(e){ err($('loErr'), e.message||'Listing failed.'); }
   finally{ btn.disabled=false; btn.textContent=ol; }
 }
